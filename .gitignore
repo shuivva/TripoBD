@@ -1,0 +1,19 @@
+# VS Code / Visual Studio
+.vs/
+.vscode/
+
+# React
+Frontend/node_modules/
+Frontend/dist/
+
+# Django
+Backend/venv/
+Backend/__pycache__/
+*.pyc
+
+# Environment files
+.env
+
+# OS files
+.DS_Store
+Thumbs.db
