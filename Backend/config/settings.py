@@ -10,10 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file in project root (if present)
+load_dotenv(str(BASE_DIR / '.env'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -129,3 +134,21 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+
+# Email Configuration - use SMTP (Gmail)
+# NOTE: Set the EMAIL_HOST_PASSWORD environment variable to the Gmail app password
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'hawkersystem@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+
+# For development it's okay to allow specifying plain credentials via env, but
+# avoid hardcoding passwords. You should set EMAIL_HOST_PASSWORD in your
+# environment before running the server, for example in PowerShell:
+# $env:EMAIL_HOST_PASSWORD = 'your-app-password'

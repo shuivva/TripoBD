@@ -1,4 +1,92 @@
 from django.db import models
+from django.contrib.auth.models import User
+
+
+class UserProfile(models.Model):
+    USER_TYPE_CHOICES = [
+        ('traveler', 'Traveler'),
+        ('service_provider', 'Service Provider'),
+    ]
+    
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+    
+    DIVISION_CHOICES = [
+        ('dhaka', 'Dhaka'),
+        ('chittagong', 'Chittagong'),
+        ('rajshahi', 'Rajshahi'),
+        ('khulna', 'Khulna'),
+        ('barisal', 'Barisal'),
+        ('sylhet', 'Sylhet'),
+        ('rangpur', 'Rangpur'),
+        ('mymensingh', 'Mymensingh'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    full_name = models.CharField(max_length=100)
+    phone_number = models.CharField(max_length=15)
+    date_of_birth = models.DateField()
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
+    division = models.CharField(max_length=20, choices=DIVISION_CHOICES)
+    district = models.CharField(max_length=50)
+    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    national_id = models.CharField(max_length=20, blank=True, null=True)
+    user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='traveler')
+    is_email_verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'user_profiles'
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.full_name}'
+
+
+class OTPVerification(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+    
+    class Meta:
+        db_table = 'otp_verifications'
+    
+    def __str__(self):
+        return f'{self.user.email} - {self.otp}'
+
+
+class ServiceProvider(models.Model):
+    SERVICE_TYPE_CHOICES = [
+        ('tour_guide', 'Tour Guide'),
+        ('boat_operator', 'Boat Operator'),
+        ('vehicle_rental', 'Vehicle Rental'),
+        ('photography', 'Photography'),
+        ('other', 'Other'),
+    ]
+    
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='service_provider')
+    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
+    specialized_destinations = models.TextField(help_text='Comma separated list of service areas')
+    years_of_experience = models.PositiveIntegerField()
+    languages_offered = models.TextField(help_text='Comma separated list of languages')
+    fee_range = models.CharField(max_length=50)
+    nid_scan = models.ImageField(upload_to='nid_scans/')
+    certification = models.FileField(upload_to='certifications/', blank=True, null=True)
+    portfolio_photos = models.JSONField(default=list, blank=True)
+    bank_account_details = models.TextField()
+    is_verified = models.BooleanField(default=False)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    verified_at = models.DateTimeField(null=True, blank=True)
+    
+    class Meta:
+        db_table = 'service_providers'
+    
+    def __str__(self):
+        return f'{self.user.full_name} - {self.get_service_type_display()}'
 
 
 class Destination(models.Model):

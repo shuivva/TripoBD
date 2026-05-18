@@ -4,6 +4,7 @@ const navLinks = [
   { label: 'Home', to: '/' },
   { label: 'Discover', to: '/discover' },
   { label: 'Routes', to: '/routes' },
+  { label: 'FAQ', to: '/faq' },
   { label: 'About', to: '/about' },
 ]
 
@@ -29,11 +30,14 @@ export default function Navigation() {
         ))}
       </nav>
       <div className="header-actions">
-        <Link to="/signin" className="button button-outline" style={{ marginRight: '10px' }}>
-          Sign In
+        <Link to="/register/traveler" className="button button-outline" style={{ marginRight: '10px' }}>
+          Traveler Register
         </Link>
-        <Link to="/signup" className="button button-primary">
-          Sign Up
+        <Link to="/register/service-provider" className="button button-outline" style={{ marginRight: '10px' }}>
+          Provider Register
+        </Link>
+        <Link to="/signin" className="button button-primary">
+          Sign In
         </Link>
       </div>
     </header>

@@ -49,8 +49,8 @@ export default function Discover() {
 
   return (
     <main className="page-shell page-discover">
-      <section className="discover-hero" style={{ textAlign: 'center', marginBottom: '2rem' }}>
-        <div>
+      <section className="discover-hero" style={{ textAlign: 'center', marginBottom: '2rem', backgroundImage: "url('https://media.cntraveler.com/photos/61eef131c101d1d3fd6ac22d/16:9/w_1600,c_limit/Chris%20Burkhad_010905_BURKARD_22029.JPG')", backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '12px', padding: '3rem 1rem' }}>
+        <div style={{ color: 'white', textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}>
           <span className="eyebrow">Destination discovery</span>
           <h1>Where do you want to go?</h1>
           <p>Search Bangladesh destinations, filter by region, category and budget, and plan your next group trip.</p>
