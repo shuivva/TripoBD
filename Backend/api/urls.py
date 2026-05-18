@@ -9,6 +9,7 @@ from .views import (
     verify_otp,
     register_service_provider,
     login_view,
+    logout_view,
 )
 
 urlpatterns = [
@@ -21,4 +22,5 @@ urlpatterns = [
     path('auth/verify-otp/', verify_otp, name='verify-otp'),
     path('auth/register/service-provider/', register_service_provider, name='register-service-provider'),
     path('auth/login/', login_view, name='login'),
+    path('auth/logout/', logout_view, name='logout'),
 ]
