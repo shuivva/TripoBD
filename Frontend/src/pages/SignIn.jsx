@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 export default function SignIn() {
@@ -23,12 +23,15 @@ export default function SignIn() {
 
       const data = await res.json()
       if (res.ok) {
+        if (data.user_id) {
+          localStorage.setItem('userId', data.user_id)
+        }
         // In a real app you'd store a token; for now just redirect
         navigate('/traveler/dashboard')
       } else {
         setError(data.error || 'Login failed')
       }
-    } catch (err) {
+    } catch {
       setError('Login failed. Please try again.')
     } finally {
       setLoading(false)

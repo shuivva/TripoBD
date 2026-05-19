@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class UserProfile(models.Model):
@@ -109,6 +110,124 @@ class Destination(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Badge(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    icon = models.CharField(max_length=50, blank=True)
+    requirement = models.TextField(help_text='Description of how to earn this badge')
+
+    class Meta:
+        db_table = 'badges'
+
+    def __str__(self):
+        return self.name
+
+
+class AccountSettings(models.Model):
+    PROFILE_VISIBILITY_CHOICES = [
+        ('public', 'Public'),
+        ('friends_only', 'Friends Only'),
+        ('private', 'Private'),
+    ]
+
+    user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_settings')
+    profile_visibility = models.CharField(max_length=20, choices=PROFILE_VISIBILITY_CHOICES, default='public')
+    two_factor_enabled = models.BooleanField(default=False)
+    deactivation_requested = models.BooleanField(default=False)
+    deactivation_requested_at = models.DateTimeField(null=True, blank=True)
+    deactivation_reason = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'account_settings'
+
+    def request_deactivation(self, reason=None):
+        self.deactivation_requested = True
+        self.deactivation_requested_at = timezone.now()
+        if reason is not None:
+            self.deactivation_reason = reason
+        self.save(update_fields=['deactivation_requested', 'deactivation_requested_at', 'deactivation_reason'])
+
+
+class TravelPreferences(models.Model):
+    TRAVEL_STYLE_CHOICES = [
+        ('adventure', 'Adventure'),
+        ('relaxed', 'Relaxed'),
+        ('cultural', 'Cultural'),
+        ('budget', 'Budget'),
+        ('mix', 'Mix'),
+    ]
+
+    user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='travel_preferences')
+    preferred_destinations = models.TextField(blank=True, help_text='Comma separated list of preferred destinations')
+    travel_style = models.CharField(max_length=20, choices=TRAVEL_STYLE_CHOICES, default='mix')
+    group_size_preference = models.PositiveIntegerField(null=True, blank=True, help_text='Preferred group size')
+    languages_spoken = models.TextField(blank=True, help_text='Comma separated list of languages')
+
+    class Meta:
+        db_table = 'travel_preferences'
+
+
+class TravelStats(models.Model):
+    user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='travel_stats')
+    total_trips_logged = models.PositiveIntegerField(default=0)
+    destinations_visited = models.PositiveIntegerField(default=0)
+    stories_posted = models.PositiveIntegerField(default=0)
+    reviews_written = models.PositiveIntegerField(default=0)
+    leaderboard_rank = models.PositiveIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'travel_stats'
+
+
+class TripStory(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+    ]
+
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='trip_stories')
+    destination = models.ForeignKey('Destination', on_delete=models.CASCADE)
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    cover_photo = models.ImageField(upload_to='story_covers/', null=True, blank=True)
+    photos = models.JSONField(default=list, blank=True, help_text='List of photo URLs')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'trip_stories'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} ({self.get_status_display()})'
+
+
+class UserBadge(models.Model):
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='badges')
+    badge = models.ForeignKey(Badge, on_delete=models.CASCADE)
+    earned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'user_badges'
+        unique_together = ('user_profile', 'badge')
+
+
+class Wishlist(models.Model):
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='wishlist')
+    destination = models.ForeignKey('Destination', on_delete=models.CASCADE)
+    added_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'wishlist'
+        unique_together = ('user_profile', 'destination')
+
+    def __str__(self):
+        return f'{self.user_profile.full_name} → {self.destination.name}'
 
 
 class Attraction(models.Model):

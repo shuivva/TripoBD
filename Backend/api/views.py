@@ -2,6 +2,7 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
@@ -9,7 +10,18 @@ from django.contrib.auth import logout
 from django.core.mail import send_mail
 from django.conf import settings
 import traceback
-from .models import Destination, Guide, Route, UserProfile, OTPVerification, ServiceProvider
+from django.utils import timezone
+from .models import (
+    Destination,
+    Guide,
+    Route,
+    UserProfile,
+    OTPVerification,
+    ServiceProvider,
+    AccountSettings,
+    TravelPreferences,
+    TravelStats,
+)
 from .serializers import (
     DestinationListSerializer,
     DestinationDetailSerializer,
@@ -19,6 +31,9 @@ from .serializers import (
     UserProfileSerializer,
     OTPVerificationSerializer,
     ServiceProviderSerializer,
+    TravelerProfileSerializer,
+    TravelPreferencesSerializer,
+    AccountSettingsSerializer,
 )
 
 
@@ -158,7 +173,10 @@ def register_traveler(request):
         
         profile_serializer = UserProfileSerializer(data=profile_data)
         if profile_serializer.is_valid():
-            profile_serializer.save()
+            profile = profile_serializer.save()
+            TravelPreferences.objects.create(user_profile=profile)
+            TravelStats.objects.create(user_profile=profile)
+            AccountSettings.objects.create(user_profile=profile)
             
             # Generate and send OTP
             import random
@@ -275,7 +293,8 @@ def register_service_provider(request):
             user.delete()
             return Response(profile_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        profile_serializer.save()
+        profile = profile_serializer.save()
+        AccountSettings.objects.create(user_profile=profile)
         
         # Step 2-4: Create service provider profile
         service_provider_data = {
@@ -338,3 +357,107 @@ TripoBD Team
             return Response(sp_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     return Response(user_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+def _get_traveler_profile_or_404(user_id):
+    profile = UserProfile.objects.filter(user_id=user_id, user_type='traveler').first()
+    if not profile:
+        return None
+    TravelPreferences.objects.get_or_create(user_profile=profile)
+    TravelStats.objects.get_or_create(user_profile=profile)
+    AccountSettings.objects.get_or_create(user_profile=profile)
+    return profile
+
+
+@api_view(['GET'])
+def traveler_profile_detail(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = TravelerProfileSerializer(profile, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(['PUT', 'PATCH'])
+def traveler_profile_update(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = UserProfileSerializer(profile, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(TravelerProfileSerializer(profile, context={'request': request}).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH'])
+def traveler_preferences_update(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    preferences = profile.travel_preferences
+    serializer = TravelPreferencesSerializer(preferences, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(TravelerProfileSerializer(profile, context={'request': request}).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['PUT', 'PATCH'])
+def traveler_account_settings_update(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    settings_payload = {
+        'profile_visibility': request.data.get('profile_visibility'),
+        'two_factor_enabled': request.data.get('two_factor_enabled'),
+    }
+
+    if request.data.get('deactivation_requested'):
+        settings_payload['deactivation_requested'] = True
+        settings_payload['deactivation_requested_at'] = timezone.now()
+        settings_payload['deactivation_reason'] = request.data.get('deactivation_reason', '')
+
+    account_settings = profile.account_settings
+    serializer = AccountSettingsSerializer(account_settings, data=settings_payload, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(TravelerProfileSerializer(profile, context={'request': request}).data)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def traveler_change_password(request, user_id):
+    user = User.objects.filter(id=user_id).first()
+    if not user:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    current_password = request.data.get('current_password')
+    new_password = request.data.get('new_password')
+    if not current_password or not new_password:
+        return Response({'error': 'Current and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not user.check_password(current_password):
+        return Response({'error': 'Current password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save(update_fields=['password'])
+    return Response({'message': 'Password updated successfully'})
+
+
+@api_view(['POST'])
+def traveler_profile_photo_update(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    photo = request.FILES.get('profile_photo') or request.data.get('profile_photo')
+    if not photo:
+        return Response({'error': 'Profile photo is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    profile.profile_photo = photo
+    profile.save(update_fields=['profile_photo'])
+    return Response(TravelerProfileSerializer(profile, context={'request': request}).data)

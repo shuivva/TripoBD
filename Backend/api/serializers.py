@@ -1,6 +1,24 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Destination, Attraction, Accommodation, Review, TourGroup, Guide, Route, UserProfile, OTPVerification, ServiceProvider
+from .models import (
+    Destination,
+    Attraction,
+    Accommodation,
+    Review,
+    TourGroup,
+    Guide,
+    Route,
+    UserProfile,
+    OTPVerification,
+    ServiceProvider,
+    Badge,
+    AccountSettings,
+    TravelPreferences,
+    TravelStats,
+    TripStory,
+    UserBadge,
+    Wishlist,
+)
 
 
 class AttractionSerializer(serializers.ModelSerializer):
@@ -59,6 +77,122 @@ class DestinationDetailSerializer(serializers.ModelSerializer):
             'accommodations',
             'reviews',
             'groups',
+        ]
+
+
+class TravelPreferencesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TravelPreferences
+        fields = [
+            'preferred_destinations',
+            'travel_style',
+            'group_size_preference',
+            'languages_spoken',
+        ]
+
+
+class TravelStatsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TravelStats
+        fields = [
+            'total_trips_logged',
+            'destinations_visited',
+            'stories_posted',
+            'reviews_written',
+            'leaderboard_rank',
+        ]
+
+
+class AccountSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AccountSettings
+        fields = [
+            'profile_visibility',
+            'two_factor_enabled',
+            'deactivation_requested',
+            'deactivation_requested_at',
+            'deactivation_reason',
+        ]
+
+
+class BadgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Badge
+        fields = ['id', 'name', 'description', 'icon', 'requirement']
+
+
+class UserBadgeSerializer(serializers.ModelSerializer):
+    badge = BadgeSerializer(read_only=True)
+
+    class Meta:
+        model = UserBadge
+        fields = ['id', 'badge', 'earned_at']
+
+
+class WishlistDestinationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Destination
+        fields = ['slug', 'name', 'region', 'category', 'budget', 'rating', 'hero']
+
+
+class WishlistSerializer(serializers.ModelSerializer):
+    destination = WishlistDestinationSerializer(read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'destination', 'added_at', 'notes']
+
+
+class TripStorySerializer(serializers.ModelSerializer):
+    destination_name = serializers.CharField(source='destination.name', read_only=True)
+    destination_slug = serializers.CharField(source='destination.slug', read_only=True)
+
+    class Meta:
+        model = TripStory
+        fields = [
+            'id',
+            'title',
+            'content',
+            'cover_photo',
+            'photos',
+            'status',
+            'created_at',
+            'updated_at',
+            'published_at',
+            'destination_name',
+            'destination_slug',
+        ]
+
+
+class TravelerProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    travel_preferences = TravelPreferencesSerializer(read_only=True)
+    travel_stats = TravelStatsSerializer(read_only=True)
+    account_settings = AccountSettingsSerializer(read_only=True)
+    badges = UserBadgeSerializer(many=True, read_only=True)
+    wishlist = WishlistSerializer(many=True, read_only=True)
+    trip_stories = TripStorySerializer(many=True, read_only=True)
+
+    class Meta:
+        model = UserProfile
+        fields = [
+            'id',
+            'username',
+            'email',
+            'full_name',
+            'phone_number',
+            'date_of_birth',
+            'gender',
+            'division',
+            'district',
+            'profile_photo',
+            'travel_preferences',
+            'travel_stats',
+            'account_settings',
+            'badges',
+            'wishlist',
+            'trip_stories',
         ]
 
 

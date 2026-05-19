@@ -1,5 +1,24 @@
 from django.core.management.base import BaseCommand
-from api.models import Destination, Attraction, Accommodation, Review, TourGroup, Guide, Route
+from django.contrib.auth.models import User
+from django.utils import timezone
+from datetime import date
+from api.models import (
+    Destination,
+    Attraction,
+    Accommodation,
+    Review,
+    TourGroup,
+    Guide,
+    Route,
+    UserProfile,
+    TravelPreferences,
+    TravelStats,
+    Badge,
+    UserBadge,
+    Wishlist,
+    TripStory,
+    AccountSettings,
+)
 
 SAMPLE_DESTINATIONS = [
     {
@@ -65,7 +84,7 @@ SAMPLE_ROUTES = [
 ]
 
 class Command(BaseCommand):
-    help = 'Seed the database with sample destinations, guides and routes.'
+    help = 'Seed the database with sample destinations, guides, routes, and traveler profiles.'
 
     def handle(self, *args, **options):
         self.stdout.write('Seeding sample data...')
@@ -133,5 +152,105 @@ class Command(BaseCommand):
                 path=r.get('path',[]),
             )
         self.stdout.write('Routes seeded')
+
+        # Traveler profile sample
+        user, created = User.objects.get_or_create(
+            username='traveler1',
+            defaults={'email': 'traveler1@example.com'},
+        )
+        if not created and user.email != 'traveler1@example.com':
+            user.email = 'traveler1@example.com'
+        user.set_password('Traveler@123')
+        user.save()
+
+        profile, _ = UserProfile.objects.update_or_create(
+            user=user,
+            defaults={
+                'full_name': 'Ayesha Rahman',
+                'phone_number': '01700000000',
+                'date_of_birth': date(1995, 5, 12),
+                'gender': 'female',
+                'division': 'dhaka',
+                'district': 'Dhaka',
+                'user_type': 'traveler',
+                'is_email_verified': True,
+            },
+        )
+
+        TravelPreferences.objects.update_or_create(
+            user_profile=profile,
+            defaults={
+                'preferred_destinations': "Cox's Bazar, Sundarbans",
+                'travel_style': 'cultural',
+                'group_size_preference': 4,
+                'languages_spoken': 'Bangla, English',
+            },
+        )
+
+        TravelStats.objects.update_or_create(
+            user_profile=profile,
+            defaults={
+                'total_trips_logged': 8,
+                'destinations_visited': 12,
+                'stories_posted': 3,
+                'reviews_written': 5,
+                'leaderboard_rank': 14,
+            },
+        )
+
+        AccountSettings.objects.filter(user_profile=profile).delete()
+        AccountSettings.objects.create(
+            user_profile=profile,
+            profile_visibility='public',
+            two_factor_enabled=False,
+            deactivation_requested=False,
+            deactivation_requested_at=None,
+            deactivation_reason='',
+        )
+
+        explorer_badge, _ = Badge.objects.update_or_create(
+            name='Explorer',
+            defaults={
+                'description': 'Visited 5 destinations',
+                'icon': '🧭',
+                'requirement': 'Visit 5 unique destinations',
+            },
+        )
+        storyteller_badge, _ = Badge.objects.update_or_create(
+            name='Storyteller',
+            defaults={
+                'description': 'Shared your first trip story',
+                'icon': '✍️',
+                'requirement': 'Publish one trip story',
+            },
+        )
+        UserBadge.objects.get_or_create(user_profile=profile, badge=explorer_badge)
+        UserBadge.objects.get_or_create(user_profile=profile, badge=storyteller_badge)
+
+        Wishlist.objects.filter(user_profile=profile).delete()
+        wishlist_dest = Destination.objects.filter(slug='coxs-bazar').first()
+        if wishlist_dest:
+            Wishlist.objects.create(user_profile=profile, destination=wishlist_dest, notes='Plan for winter')
+
+        TripStory.objects.filter(user_profile=profile).delete()
+        story_dest = Destination.objects.filter(slug='sundarbans').first()
+        if story_dest:
+            TripStory.objects.create(
+                user_profile=profile,
+                destination=story_dest,
+                title='Mangrove Adventure',
+                content='Explored the mangroves and spotted wildlife during a sunset cruise.',
+                status='published',
+                published_at=timezone.now(),
+            )
+            TripStory.objects.create(
+                user_profile=profile,
+                destination=story_dest,
+                title='Draft: River Journey',
+                content='Notes and memories from the river journey.',
+                status='draft',
+            )
+
+        self.stdout.write('Traveler profile seeded')
 
         self.stdout.write(self.style.SUCCESS('Seeding complete.'))

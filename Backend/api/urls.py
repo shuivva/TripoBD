@@ -10,6 +10,12 @@ from .views import (
     register_service_provider,
     login_view,
     logout_view,
+    traveler_profile_detail,
+    traveler_profile_update,
+    traveler_preferences_update,
+    traveler_account_settings_update,
+    traveler_change_password,
+    traveler_profile_photo_update,
 )
 
 urlpatterns = [
@@ -23,4 +29,10 @@ urlpatterns = [
     path('auth/register/service-provider/', register_service_provider, name='register-service-provider'),
     path('auth/login/', login_view, name='login'),
     path('auth/logout/', logout_view, name='logout'),
+    path('traveler/profile/<int:user_id>/', traveler_profile_detail, name='traveler-profile-detail'),
+    path('traveler/profile/<int:user_id>/update/', traveler_profile_update, name='traveler-profile-update'),
+    path('traveler/profile/<int:user_id>/preferences/', traveler_preferences_update, name='traveler-preferences-update'),
+    path('traveler/profile/<int:user_id>/account-settings/', traveler_account_settings_update, name='traveler-account-settings-update'),
+    path('traveler/profile/<int:user_id>/change-password/', traveler_change_password, name='traveler-change-password'),
+    path('traveler/profile/<int:user_id>/photo/', traveler_profile_photo_update, name='traveler-profile-photo-update'),
 ]
