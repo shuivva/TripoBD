@@ -100,9 +100,10 @@ export default function Footer() {
       <div className="footer-brand">
         <h3>TripoBD</h3>
         <p>Plan Smart. Travel Together.</p>
+        <p className="footer-tagline">Your ultimate Bangladesh travel companion</p>
       </div>
 
-      <div>
+      <div className="footer-section">
         <h4>Company</h4>
         <ul className="footer-links">
           {footerLinks.company.map((link) => (
@@ -115,7 +116,7 @@ export default function Footer() {
         </ul>
       </div>
 
-      <div>
+      <div className="footer-section">
         <h4>Support</h4>
         <ul className="footer-links">
           {footerLinks.support.map((link) => (
@@ -128,7 +129,7 @@ export default function Footer() {
         </ul>
       </div>
 
-      <div>
+      <div className="footer-section">
         <h4>Legal</h4>
         <ul className="footer-links">
           {footerLinks.legal.map((link) => (
@@ -141,7 +142,7 @@ export default function Footer() {
         </ul>
       </div>
 
-      <div>
+      <div className="footer-section">
         <h4>Follow Us</h4>
         <div className="social-links">
           {footerLinks.social.map((link) => (
@@ -159,11 +160,11 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="footer-note" style={{ width: '100%', textAlign: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid rgba(226, 232, 240, 0.9)' }}>
-        <p style={{ margin: '0 0 8px 0' }}>
+      <div className="footer-bottom">
+        <p className="footer-copyright">
           © {currentYear} TripoBD. All rights reserved.
         </p>
-        <p style={{ margin: 0, fontSize: '0.9rem' }}>
+        <p className="footer-tagline">
           Made with ❤️ for travelers | Designed for Bangladesh
         </p>
       </div>
