@@ -23,8 +23,12 @@ export default function SignIn() {
 
       const data = await res.json()
       if (res.ok) {
-        // In a real app you'd store a token; for now just redirect
-        navigate('/traveler/dashboard')
+        // Redirect based on user type
+        if (data.user_type === 'service_provider') {
+          navigate('/service-provider/dashboard')
+        } else {
+          navigate('/traveler/dashboard')
+        }
       } else {
         setError(data.error || 'Login failed')
       }

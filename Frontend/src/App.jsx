@@ -12,6 +12,7 @@ import FAQ from './pages/FAQ'
 import TravelerRegistration from './pages/TravelerRegistration'
 import ServiceProviderRegistration from './pages/ServiceProviderRegistration'
 import TravelerDashboard from './pages/TravelerDashboard'
+import ServiceProviderDashboard from './pages/ServiceProviderDashboard'
 import SignIn from './pages/SignIn'
 import TravelerProfile from './pages/TravelerProfile'
 import TravelerRoom from './pages/TravelerRoom'
@@ -34,6 +35,8 @@ function App() {
         <Route path="/register/service-provider" element={<ServiceProviderRegistration />} />
         <Route path="/signin" element={<SignIn />} />
         <Route path="/traveler/dashboard" element={<TravelerDashboard />} />
+        <Route path="/service-provider/*" element={<ServiceProviderDashboard />} />
+        {/* <Route path="/service-provider/dashboard" element={<ServiceProviderDashboard />} /> */}
         <Route path="/traveler/profile" element={<TravelerProfile />} />
         <Route path="/traveler/room" element={<TravelerRoom />} />
         <Route path="/traveler/community" element={<TravelerCommunity />} />

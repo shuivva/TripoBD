@@ -155,33 +155,45 @@ export default function ServiceProviderRegistration() {
 
     try {
       const formDataToSend = new FormData()
-      
+
+      // Helper function to append only if value exists
+      const appendIfNotEmpty = (key, value) => {
+        const isEmptyString = typeof value === 'string' && value.trim() === ''
+        const isNull = value === null || value === undefined
+        const isEmptyFile = value instanceof File === true && value.size === 0
+        if (!isEmptyString && !isNull && !isEmptyFile) {
+          formDataToSend.append(key, value)
+        }
+      }
+
       // Personal Info
-      formDataToSend.append('username', formData.username)
-      formDataToSend.append('email', formData.email)
-      formDataToSend.append('password', formData.password)
-      formDataToSend.append('confirm_password', formData.confirm_password)
-      
+      appendIfNotEmpty('username', formData.username)
+      appendIfNotEmpty('email', formData.email)
+      appendIfNotEmpty('password', formData.password)
+      appendIfNotEmpty('confirm_password', formData.confirm_password)
+
       // Profile Info
-      formDataToSend.append('full_name', formData.full_name)
-      formDataToSend.append('phone_number', formData.phone_number)
+      appendIfNotEmpty('full_name', formData.full_name)
+      appendIfNotEmpty('phone_number', formData.phone_number)
       formDataToSend.append('date_of_birth', '1990-01-01') // Default for service providers
       formDataToSend.append('gender', 'other') // Default for service providers
       formDataToSend.append('division', 'dhaka') // Default (lowercase)
-      formDataToSend.append('district', formData.district || 'Dhaka') // Default
-      formDataToSend.append('profile_photo', formData.profile_photo)
-      formDataToSend.append('national_id', formData.nid_scan?.name || '')
-      
+      appendIfNotEmpty('district', formData.district || 'Dhaka')
+      appendIfNotEmpty('profile_photo', formData.profile_photo)
+      appendIfNotEmpty('national_id', formData.nid_scan?.name || '')
+
       // Service Info
-      formDataToSend.append('service_type', formData.service_type.toLowerCase().replace(' ', '_'))
-      formDataToSend.append('specialized_destinations', formData.specialized_destinations)
-      formDataToSend.append('years_of_experience', formData.years_of_experience)
-      formDataToSend.append('languages_offered', formData.languages_offered)
-      formDataToSend.append('fee_range', formData.fee_range)
-      formDataToSend.append('nid_scan', formData.nid_scan)
-      formDataToSend.append('certification', formData.certification)
-      formDataToSend.append('portfolio_photos', JSON.stringify(formData.portfolio_photos.map(p => p.name)))
-      formDataToSend.append('bank_account_details', formData.bank_account_details)
+      appendIfNotEmpty('service_type', formData.service_type.toLowerCase().replace(' ', '_'))
+      appendIfNotEmpty('specialized_destinations', formData.specialized_destinations)
+      appendIfNotEmpty('years_of_experience', formData.years_of_experience)
+      appendIfNotEmpty('languages_offered', formData.languages_offered)
+      appendIfNotEmpty('fee_range', formData.fee_range)
+      appendIfNotEmpty('nid_scan', formData.nid_scan)
+      appendIfNotEmpty('certification', formData.certification)
+      if (formData.portfolio_photos && formData.portfolio_photos.length > 0) {
+        formDataToSend.append('portfolio_photos', JSON.stringify(formData.portfolio_photos.map(p => p.name)))
+      }
+      appendIfNotEmpty('bank_account_details', formData.bank_account_details)
 
       const response = await fetch('http://localhost:8000/api/auth/register/service-provider/', {
         method: 'POST',
@@ -223,7 +235,8 @@ export default function ServiceProviderRegistration() {
       const data = await response.json()
 
       if (response.ok) {
-        navigate('/signin')
+        //navigate('/signin')
+        navigate('/service-provider/dashboard')
       } else {
         setError(data.error || 'Invalid OTP')
       }

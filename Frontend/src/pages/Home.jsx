@@ -131,7 +131,7 @@ export default function Home() {
             <p className="fc-summary">{carouselItem.summary}</p>
             <div className="fc-meta">
               <span className="fc-reviews">⭐ {carouselItem.rating} · {carouselItem.reviews || 120} reviews</span>
-              <Link to={`/destination/${carouselItem.slug}`} className="fc-detail-btn">View Details →</Link>
+              <Link to={`/DestinationDetails/${carouselItem.slug}`} className="fc-detail-btn">View Details →</Link>
             </div>
           </div>
         </div>

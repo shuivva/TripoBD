@@ -127,6 +127,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'national_id',
             'user_type',
         ]
+        extra_kwargs = {
+            'profile_photo': {'required': False, 'allow_null': True},
+            'national_id': {'required': False, 'allow_blank': True},
+        }
 
 
 class OTPVerificationSerializer(serializers.ModelSerializer):
@@ -138,6 +142,7 @@ class OTPVerificationSerializer(serializers.ModelSerializer):
 class ServiceProviderSerializer(serializers.ModelSerializer):
     # accept user id when creating service provider entries
     user = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), write_only=True)
+
     class Meta:
         model = ServiceProvider
         fields = [
@@ -152,3 +157,7 @@ class ServiceProviderSerializer(serializers.ModelSerializer):
             'portfolio_photos',
             'bank_account_details',
         ]
+        extra_kwargs = {
+            'nid_scan': {'required': True},
+            'certification': {'required': False},
+        }

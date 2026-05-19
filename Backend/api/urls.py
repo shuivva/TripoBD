@@ -10,6 +10,8 @@ from .views import (
     register_service_provider,
     login_view,
     logout_view,
+    get_service_provider_profile,
+    update_service_provider_profile,
 )
 
 urlpatterns = [
@@ -23,4 +25,6 @@ urlpatterns = [
     path('auth/register/service-provider/', register_service_provider, name='register-service-provider'),
     path('auth/login/', login_view, name='login'),
     path('auth/logout/', logout_view, name='logout'),
+    path('service-provider/profile/', get_service_provider_profile, name='get-service-provider-profile'),
+    path('service-provider/profile/update/', update_service_provider_profile, name='update-service-provider-profile'),
 ]
