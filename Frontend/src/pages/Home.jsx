@@ -116,10 +116,7 @@ export default function Home() {
       {/* ════ CAROUSEL ════ */}
       <section className="fc-section">
         <div className="fc-intro">
-          <div className="fc-intro-top">
-            <span className="fc-eyebrow">✦ Featured destinations</span>
-            <Link to="/featured-destinations" className="fc-all-btn">Explore all featured</Link>
-          </div>
+          <span className="fc-eyebrow">✦ Featured destinations</span>
           <h2>Discover Bangladesh's most loved routes.</h2>
         </div>
         <div className="fc-card">
@@ -421,13 +418,6 @@ export default function Home() {
           margin: 2rem 0;
         }
         .fc-intro { text-align: center; margin-bottom: 2.5rem; }
-        .fc-intro-top {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
         .fc-eyebrow {
           display: inline-block;
           background: linear-gradient(90deg,#e63946,#f4a261);
@@ -435,20 +425,6 @@ export default function Home() {
           background-clip:text; font-weight:700;
           font-size: .82rem; letter-spacing: .06em; text-transform: uppercase;
         }
-        .fc-all-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid #cbd5e1;
-          border-radius: 999px;
-          padding: 0.35rem 0.85rem;
-          font-size: 0.78rem;
-          color: #334155;
-          text-decoration: none;
-          background: #fff;
-          font-weight: 700;
-        }
-        .fc-all-btn:hover { border-color: #10b981; color: #047857; }
         .fc-intro h2 { font-size: clamp(1.5rem,3vw,2.2rem); font-weight: 800; color: #0f172a; margin: .5rem 0 0; }
         .fc-card {
           display: flex; border-radius: 1.5rem; overflow: hidden; background: #fff;

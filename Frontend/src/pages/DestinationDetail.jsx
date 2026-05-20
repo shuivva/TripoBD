@@ -2,32 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import MapView from '../components/MapView'
 import { getDestinationDetail, getRoutes, getGuides } from '../apiClient'
-import { destinationDetails, destinations, guideProfiles, transportRoutes } from '../data'
 
 const accommodationOptions = ['Standard', 'Comfort', 'Premium']
-const DEFAULT_COORDS = [23.7, 90.4]
-
-function buildFallbackDetails(slug) {
-  const base = destinationDetails[slug]
-  if (base) return base
-  const destination = destinations.find((item) => item.slug === slug)
-  if (!destination) return null
-
-  return {
-    name: destination.name,
-    description: destination.summary,
-    highlights: [`Explore ${destination.name}`, `Enjoy ${destination.category.toLowerCase()} experiences`],
-    bestTime: destination.season || 'November to March',
-    pack: ['Comfortable clothing', 'Water bottle', 'Camera'],
-    tips: ['Start early to avoid crowds', 'Book stays in advance'],
-    attractions: [destination.name],
-    food: ['Local cuisine'],
-    eateries: ['Popular local restaurant'],
-    accommodations: [],
-    reviews: [{ author: 'TripoBD Traveler', score: destination.rating || 4.5, note: 'A great destination for your next trip.' }],
-    groups: [{ name: `${destination.name} Explorers`, members: 6, departure: 'Next week' }],
-  }
-}
 
 export default function DestinationDetail() {
   const { slug } = useParams()
@@ -48,32 +24,11 @@ export default function DestinationDetail() {
         getRoutes({ to: data.name }).then((r) => setTransportOptions(r)).catch(() => setTransportOptions([]))
       })
       .catch(() => {
-        const fallback = buildFallbackDetails(slug)
-        const fallbackDestination = destinations.find((item) => item.slug === slug)
-
-        if (!fallback || !fallbackDestination) {
-          setDetails(null)
-          setDestination(null)
-          return
-        }
-
-        setDetails(fallback)
-        setDestination({
-          slug: fallbackDestination.slug,
-          name: fallbackDestination.name,
-          hero: fallbackDestination.hero,
-          region: fallbackDestination.region,
-          coords_lat: fallbackDestination.coords?.[0] ?? DEFAULT_COORDS[0],
-          coords_lng: fallbackDestination.coords?.[1] ?? DEFAULT_COORDS[1],
-        })
-        setTransportOptions(
-          transportRoutes.filter((route) =>
-            route.to.toLowerCase().includes(fallbackDestination.name.toLowerCase()),
-          ),
-        )
+        setDetails(null)
+        setDestination(null)
       })
 
-    getGuides().then((g) => setGuides(g)).catch(() => setGuides(guideProfiles))
+    getGuides().then((g) => setGuides(g)).catch(() => setGuides([]))
   }, [slug])
   const [groupSize, setGroupSize] = useState(4)
   const [duration, setDuration] = useState(3)
