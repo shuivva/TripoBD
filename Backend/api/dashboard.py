@@ -138,6 +138,7 @@ def _recent_notifications(profile, limit=5):
                 'time': time_label,
                 'icon': n.icon,
                 'is_read': n.is_read,
+                'link': n.link or '',
             }
         )
     return items

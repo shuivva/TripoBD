@@ -258,15 +258,33 @@ export default function TravelerDashboard() {
               <p className="empty-hint">No notifications yet.</p>
             ) : (
               <div className="notifications-list">
-                {notifications.map((notif) => (
-                  <div key={notif.id} className="notification-item">
-                    <span className="notif-icon">{notif.icon}</span>
-                    <div className="notif-content">
-                      <p>{notif.message}</p>
-                      <span className="notif-time">{notif.time}</span>
+                {notifications.map((notif) => {
+                  const content = (
+                    <>
+                      <span className="notif-icon">{notif.icon}</span>
+                      <div className="notif-content">
+                        <p>{notif.message}</p>
+                        <span className="notif-time">{notif.time}</span>
+                      </div>
+                    </>
+                  )
+                  if (notif.link) {
+                    return (
+                      <Link
+                        key={notif.id}
+                        to={notif.link}
+                        className="notification-item notification-link"
+                      >
+                        {content}
+                      </Link>
+                    )
+                  }
+                  return (
+                    <div key={notif.id} className="notification-item">
+                      {content}
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>
@@ -726,6 +744,18 @@ export default function TravelerDashboard() {
           background: white;
           border-radius: 12px;
           border: 1px solid rgba(91,140,255,0.08);
+        }
+
+        .notification-link {
+          text-decoration: none;
+          color: inherit;
+          cursor: pointer;
+          transition: background 0.15s, box-shadow 0.15s;
+        }
+
+        .notification-link:hover {
+          background: #f0f7ff;
+          box-shadow: 0 2px 8px rgba(91, 140, 255, 0.12);
         }
 
         .notif-icon {

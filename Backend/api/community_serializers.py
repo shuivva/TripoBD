@@ -203,13 +203,30 @@ class CommunityPostSerializer(serializers.ModelSerializer):
 
 class CommunityPostCreateSerializer(serializers.ModelSerializer):
     destination_slug = serializers.SlugField(write_only=True, required=False, allow_blank=True)
+    image_url = serializers.CharField(required=False, allow_blank=True, default='')
 
     class Meta:
         model = CommunityPost
         fields = ['post_type', 'title', 'content', 'image_url', 'destination_slug']
 
+    def validate_content(self, value):
+        if not (value or '').strip():
+            raise serializers.ValidationError('Post content is required.')
+        return value.strip()
+
+    def validate_image_url(self, value):
+        value = (value or '').strip()
+        if not value:
+            return ''
+        if not value.startswith(('http://', 'https://')):
+            raise serializers.ValidationError('Image URL must start with http:// or https://')
+        return value
+
+    def validate_destination_slug(self, value):
+        return (value or '').strip()
+
     def create(self, validated_data):
-        slug = validated_data.pop('destination_slug', None)
+        slug = validated_data.pop('destination_slug', None) or None
         destination = Destination.objects.filter(slug=slug).first() if slug else None
         return CommunityPost.objects.create(
             author=self.context['author'],

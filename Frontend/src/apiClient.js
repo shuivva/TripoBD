@@ -1,5 +1,19 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
+function parseApiError(data, fallback = 'Request failed') {
+  if (!data) return fallback
+  if (typeof data.error === 'string') return data.error
+  if (typeof data === 'object') {
+    const parts = Object.entries(data).map(([key, value]) => {
+      if (key === 'details' && typeof value === 'object') return null
+      const msg = Array.isArray(value) ? value[0] : value
+      return `${key}: ${msg}`
+    }).filter(Boolean)
+    if (parts.length) return parts.join('; ')
+  }
+  return fallback
+}
+
 export async function getDestinations(params = {}) {
   const query = new URLSearchParams(params).toString()
   const res = await fetch(`${API_BASE}/destinations/?${query}`)
@@ -121,14 +135,25 @@ export async function createOpenTourGroup(payload) {
   return data
 }
 
-export async function joinOpenTourGroup(groupId, userId) {
+export async function joinOpenTourGroup(groupId, userId, { acceptInvite = false } = {}) {
   const res = await fetch(`${API_BASE}/community/groups/${groupId}/join/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ user_id: userId }),
+    body: JSON.stringify({ user_id: userId, accept_invite: acceptInvite }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Failed to join group')
+  if (!res.ok) throw new Error(parseApiError(data, 'Failed to join group'))
+  return data
+}
+
+export async function inviteToTourGroup(groupId, userId, username) {
+  const res = await fetch(`${API_BASE}/community/groups/${groupId}/invite/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ user_id: userId, username: username.trim() }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(parseApiError(data, 'Failed to send invite'))
   return data
 }
 
@@ -140,13 +165,16 @@ export async function getCommunityFeed(params = {}, userId) {
 }
 
 export async function createCommunityPost(payload) {
+  const body = { ...payload }
+  if (!body.image_url?.trim()) delete body.image_url
+  if (!body.title?.trim()) delete body.title
   const res = await fetch(`${API_BASE}/community/feed/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   })
-  const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Failed to create post')
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(parseApiError(data, 'Failed to create post'))
   return data
 }
 

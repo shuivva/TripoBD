@@ -13,6 +13,7 @@ from .models import (
     OpenTourGroup,
     OpenTourGroupItinerary,
     OpenTourGroupMember,
+    OpenTourGroupInvite,
     CommunityPost,
     CommunityPostComment,
     CommunityPostLike,
@@ -33,6 +34,7 @@ admin.site.register(TravelerNotification)
 admin.site.register(OpenTourGroup)
 admin.site.register(OpenTourGroupItinerary)
 admin.site.register(OpenTourGroupMember)
+admin.site.register(OpenTourGroupInvite)
 admin.site.register(CommunityPost)
 admin.site.register(CommunityPostComment)
 admin.site.register(CommunityPostLike)

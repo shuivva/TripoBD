@@ -163,12 +163,23 @@ export default function TravelerCommunity() {
 
   const handleCreatePost = async (e) => {
     e.preventDefault()
+    setMessage('')
+    if (!postForm.content.trim()) {
+      setMessage('Please write something before posting.')
+      return
+    }
+    const imageUrl = postForm.image_url.trim()
+    if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+      setMessage('Image URL must start with http:// or https://')
+      return
+    }
     try {
       await createCommunityPost({ ...postForm, user_id: userId })
       setPostForm({ post_type: 'tip', title: '', content: '', image_url: '' })
+      setMessage('Post shared successfully!')
       loadFeed()
-    } catch (e) {
-      setMessage(e.message)
+    } catch (err) {
+      setMessage(err.message || 'Failed to create post')
     }
   }
 

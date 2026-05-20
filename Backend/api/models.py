@@ -332,6 +332,7 @@ class TravelerNotification(models.Model):
     NOTIFICATION_TYPES = [
         ('booking', 'Booking Update'),
         ('invite', 'Group Invite'),
+        ('group_invite', 'Tour Group Invite'),
         ('review', 'Review Reminder'),
         ('update', 'General Update'),
         ('reminder', 'Reminder'),
@@ -456,6 +457,40 @@ class OpenTourGroupMember(models.Model):
     class Meta:
         db_table = 'open_tour_group_members'
         unique_together = ('group', 'user_profile')
+
+
+class OpenTourGroupInvite(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+    ]
+
+    group = models.ForeignKey(
+        OpenTourGroup,
+        on_delete=models.CASCADE,
+        related_name='invites',
+    )
+    invited_by = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='sent_group_invites',
+    )
+    invited_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='received_group_invites',
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'open_tour_group_invites'
+        unique_together = ('group', 'invited_profile')
+
+    def __str__(self):
+        return f'Invite {self.invited_profile.full_name} → {self.group.name}'
 
 
 class CommunityPost(models.Model):

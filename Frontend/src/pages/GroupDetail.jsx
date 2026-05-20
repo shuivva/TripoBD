@@ -1,16 +1,21 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { getOpenTourGroupDetail, joinOpenTourGroup } from '../apiClient'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { getOpenTourGroupDetail, joinOpenTourGroup, inviteToTourGroup } from '../apiClient'
 import './community.css'
 
 export default function GroupDetail() {
   const { groupId } = useParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const userId = useMemo(() => localStorage.getItem('userId'), [])
   const [group, setGroup] = useState(null)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
   const [joining, setJoining] = useState(false)
+  const [inviteUsername, setInviteUsername] = useState('')
+  const [inviting, setInviting] = useState(false)
+
+  const fromInvite = searchParams.get('invite') === '1'
 
   useEffect(() => {
     if (!userId) {
@@ -23,18 +28,42 @@ export default function GroupDetail() {
       .finally(() => setLoading(false))
   }, [groupId, userId])
 
-  const handleJoin = async () => {
+  const handleJoin = async (acceptInvite = false) => {
     setJoining(true)
     setMessage('')
     try {
-      const res = await joinOpenTourGroup(groupId, userId)
+      const res = await joinOpenTourGroup(groupId, userId, {
+        acceptInvite: acceptInvite || group?.pending_invite || fromInvite,
+      })
       setMessage(res.message)
       const updated = await getOpenTourGroupDetail(groupId, userId)
       setGroup(updated)
+      if (fromInvite) {
+        setSearchParams({}, { replace: true })
+      }
     } catch (e) {
       setMessage(e.message)
     } finally {
       setJoining(false)
+    }
+  }
+
+  const handleInvite = async (e) => {
+    e.preventDefault()
+    setMessage('')
+    if (!inviteUsername.trim()) {
+      setMessage('Enter a username to invite.')
+      return
+    }
+    setInviting(true)
+    try {
+      const res = await inviteToTourGroup(groupId, userId, inviteUsername)
+      setMessage(res.message)
+      setInviteUsername('')
+    } catch (err) {
+      setMessage(err.message)
+    } finally {
+      setInviting(false)
     }
   }
 
@@ -96,23 +125,56 @@ export default function GroupDetail() {
             <li><strong>Contact:</strong> {group.contact_method} {group.contact_value && `· ${group.contact_value}`}</li>
           </ul>
 
+          {group.pending_invite && group.user_membership_status !== 'joined' && (
+            <div className="invite-banner">
+              <p>You have been invited to this group!</p>
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={joining || group.is_full}
+                onClick={() => handleJoin(true)}
+              >
+                {joining ? 'Joining…' : 'Accept invite & join'}
+              </button>
+            </div>
+          )}
+
           {group.user_membership_status === 'joined' ? (
             <span className="joined-label">You are a member</span>
           ) : group.user_membership_status === 'pending' ? (
             <span className="pending-label">Request pending</span>
           ) : group.is_full ? (
             <span className="full-label">Group is full</span>
-          ) : (
+          ) : !group.pending_invite ? (
             <button
               type="button"
               className="button button-primary"
               disabled={joining}
-              onClick={handleJoin}
+              onClick={() => handleJoin(false)}
             >
               {joining ? 'Processing…' : group.join_type === 'request' ? 'Request to join' : 'Join group'}
             </button>
-          )}
+          ) : null}
         </section>
+
+        {group.can_invite && (
+          <section className="detail-panel invite-panel">
+            <h2>Invite someone</h2>
+            <p className="community-muted">Invite a traveler by their TripoBD username.</p>
+            <form className="invite-form" onSubmit={handleInvite}>
+              <input
+                type="text"
+                placeholder="Username (e.g. shuvo)"
+                value={inviteUsername}
+                onChange={(e) => setInviteUsername(e.target.value)}
+                autoComplete="off"
+              />
+              <button type="submit" className="button button-primary" disabled={inviting}>
+                {inviting ? 'Sending…' : 'Send invite'}
+              </button>
+            </form>
+          </section>
+        )}
 
         <section className="detail-panel">
           <h2>Itinerary preview</h2>

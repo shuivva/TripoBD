@@ -1,3 +1,4 @@
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status
@@ -8,6 +9,7 @@ from .models import (
     UserProfile,
     OpenTourGroup,
     OpenTourGroupMember,
+    OpenTourGroupInvite,
     CommunityPost,
     CommunityPostComment,
     CommunityPostLike,
@@ -25,9 +27,28 @@ from .community_serializers import (
 
 
 def _get_profile(user_id):
-    if not user_id:
+    if user_id is None or user_id == '':
+        return None
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
         return None
     return UserProfile.objects.filter(user_id=user_id, user_type='traveler').first()
+
+
+def _validation_error_response(serializer):
+    if isinstance(serializer.errors, dict):
+        parts = []
+        for field, messages in serializer.errors.items():
+            if isinstance(messages, list):
+                parts.append(f'{field}: {messages[0]}')
+            else:
+                parts.append(f'{field}: {messages}')
+        return Response(
+            {'error': '; '.join(parts) or 'Invalid data', 'details': serializer.errors},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return Response({'error': 'Invalid data', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 def _notify(profile, ntype, message, icon='📌', link=''):
@@ -39,6 +60,75 @@ def _notify(profile, ntype, message, icon='📌', link=''):
         icon=icon,
         link=link,
     )
+
+
+def _group_link(group_id, invite=False):
+    base = f'/traveler/community/groups/{group_id}'
+    return f'{base}?invite=1' if invite else base
+
+
+def _is_group_member(profile, group):
+    return OpenTourGroupMember.objects.filter(
+        group=group,
+        user_profile=profile,
+        status='joined',
+    ).exists()
+
+
+def _can_invite_to_group(profile, group):
+    return _is_group_member(profile, group)
+
+
+def _get_pending_invite(profile, group):
+    return OpenTourGroupInvite.objects.filter(
+        group=group,
+        invited_profile=profile,
+        status='pending',
+    ).first()
+
+
+def _join_group(profile, group, via_invite=False):
+    """Join a group; invites bypass approval and join immediately."""
+    existing = OpenTourGroupMember.objects.filter(group=group, user_profile=profile).first()
+    if existing:
+        if existing.status == 'joined':
+            return 'joined', 'Already a member'
+        if existing.status == 'pending' and not via_invite:
+            return 'pending', 'Request already pending'
+        if via_invite:
+            existing.status = 'joined'
+            existing.save(update_fields=['status'])
+            return 'joined', 'Joined successfully'
+
+    if group.member_count >= group.max_members:
+        return None, 'Group is full'
+
+    if group.organizer_id == profile.id:
+        return None, 'You are the organiser'
+
+    if via_invite or group.join_type == 'open':
+        OpenTourGroupMember.objects.create(
+            group=group,
+            user_profile=profile,
+            role='member',
+            status='joined',
+        )
+        return 'joined', 'Joined successfully'
+
+    OpenTourGroupMember.objects.create(
+        group=group,
+        user_profile=profile,
+        role='member',
+        status='pending',
+    )
+    _notify(
+        group.organizer,
+        'invite',
+        f'{profile.full_name} requested to join "{group.name}"',
+        icon='👥',
+        link=_group_link(group.id),
+    )
+    return 'pending', 'Join request sent'
 
 
 @api_view(['GET', 'POST'])
@@ -60,7 +150,7 @@ def open_groups_list_create(request):
                 context={'request': request, 'user_id': user_id},
             )
             return Response(detail.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return _validation_error_response(serializer)
 
     queryset = OpenTourGroup.objects.filter(is_active=True).select_related(
         'destination', 'organizer'
@@ -112,16 +202,23 @@ def open_group_detail(request, group_id):
     ).prefetch_related('itinerary', 'members__user_profile').first()
     if not group:
         return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+    profile = _get_profile(user_id)
+    extra = {}
+    if profile:
+        pending = _get_pending_invite(profile, group)
+        extra['pending_invite'] = bool(pending)
+        extra['can_invite'] = _can_invite_to_group(profile, group)
     serializer = OpenTourGroupDetailSerializer(
         group,
         context={'request': request, 'user_id': user_id},
     )
-    return Response(serializer.data)
+    return Response({**serializer.data, **extra})
 
 
 @api_view(['POST'])
 def open_group_join(request, group_id):
     user_id = request.data.get('user_id')
+    accept_invite = request.data.get('accept_invite', False)
     profile = _get_profile(user_id)
     if not profile:
         return Response({'error': 'Traveler profile required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -130,45 +227,118 @@ def open_group_join(request, group_id):
     if not group:
         return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    existing = OpenTourGroupMember.objects.filter(group=group, user_profile=profile).first()
-    if existing:
-        if existing.status == 'joined':
-            return Response({'message': 'Already a member', 'status': 'joined'})
-        if existing.status == 'pending':
-            return Response({'message': 'Request already pending', 'status': 'pending'})
+    via_invite = bool(accept_invite)
+    pending_invite = _get_pending_invite(profile, group)
+    if accept_invite and not pending_invite:
+        return Response({'error': 'No pending invite for this group'}, status=status.HTTP_400_BAD_REQUEST)
+    if pending_invite and not accept_invite:
+        via_invite = True
+
+    new_status, message = _join_group(profile, group, via_invite=via_invite)
+    if new_status is None:
+        return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+
+    if via_invite and pending_invite:
+        pending_invite.status = 'accepted'
+        pending_invite.responded_at = timezone.now()
+        pending_invite.save(update_fields=['status', 'responded_at'])
+        TravelerNotification.objects.filter(
+            user_profile=profile,
+            link=_group_link(group.id, invite=True),
+            is_read=False,
+        ).update(is_read=True)
+
+    if new_status == 'joined':
+        _notify(
+            profile,
+            'booking',
+            f'You joined "{group.name}"',
+            icon='✅',
+            link=_group_link(group.id),
+        )
+
+    return Response({'message': message, 'status': new_status})
+
+
+@api_view(['POST'])
+def open_group_invite(request, group_id):
+    user_id = request.data.get('user_id')
+    username = (request.data.get('username') or '').strip()
+
+    inviter = _get_profile(user_id)
+    if not inviter:
+        return Response({'error': 'Traveler profile required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not username:
+        return Response({'error': 'Username is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    group = OpenTourGroup.objects.filter(pk=group_id, is_active=True).select_related('organizer').first()
+    if not group:
+        return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not _can_invite_to_group(inviter, group):
+        return Response(
+            {'error': 'Only group members can invite others'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     if group.member_count >= group.max_members:
         return Response({'error': 'Group is full'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if group.organizer_id == profile.id:
-        return Response({'error': 'You are the organiser'}, status=status.HTTP_400_BAD_REQUEST)
+    target_user = User.objects.filter(username__iexact=username).first()
+    if not target_user:
+        return Response({'error': f'No user found with username "{username}"'}, status=status.HTTP_404_NOT_FOUND)
 
-    new_status = 'joined' if group.join_type == 'open' else 'pending'
-    OpenTourGroupMember.objects.create(
-        group=group,
-        user_profile=profile,
-        role='member',
-        status=new_status,
-    )
-
-    if new_status == 'pending':
-        _notify(
-            group.organizer,
-            'invite',
-            f'{profile.full_name} requested to join "{group.name}"',
-            icon='👥',
-            link=f'/traveler/community/groups/{group.id}',
+    invitee = UserProfile.objects.filter(user=target_user, user_type='traveler').first()
+    if not invitee:
+        return Response(
+            {'error': 'That user does not have a traveler profile'},
+            status=status.HTTP_400_BAD_REQUEST,
         )
-        return Response({'message': 'Join request sent', 'status': 'pending'})
 
-    _notify(
-        profile,
-        'booking',
-        f'You joined "{group.name}"',
-        icon='✅',
-        link=f'/traveler/community/groups/{group.id}',
+    if invitee.id == inviter.id:
+        return Response({'error': 'You cannot invite yourself'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if _is_group_member(invitee, group):
+        return Response({'error': 'User is already in this group'}, status=status.HTTP_400_BAD_REQUEST)
+
+    existing_invite = OpenTourGroupInvite.objects.filter(group=group, invited_profile=invitee).first()
+    if existing_invite and existing_invite.status == 'pending':
+        return Response({'error': 'User already has a pending invite'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if existing_invite:
+        existing_invite.status = 'pending'
+        existing_invite.invited_by = inviter
+        existing_invite.responded_at = None
+        existing_invite.save(update_fields=['status', 'invited_by', 'responded_at'])
+        invite = existing_invite
+    else:
+        invite = OpenTourGroupInvite.objects.create(
+            group=group,
+            invited_by=inviter,
+            invited_profile=invitee,
+            status='pending',
+        )
+
+    invite_message = (
+        f'{inviter.full_name} invited you to join "{group.name}". '
+        'Tap to view the group and join.'
     )
-    return Response({'message': 'Joined successfully', 'status': 'joined'})
+    _notify(
+        invitee,
+        'group_invite',
+        invite_message,
+        icon='🎉',
+        link=_group_link(group.id, invite=True),
+    )
+
+    return Response(
+        {
+            'message': f'Invite sent to {invitee.full_name} (@{target_user.username})',
+            'invite_id': invite.id,
+            'invited_username': target_user.username,
+        },
+        status=status.HTTP_201_CREATED,
+    )
 
 
 @api_view(['GET'])
@@ -200,7 +370,15 @@ def community_feed(request):
 
     if request.method == 'POST':
         if not viewer:
-            return Response({'error': 'Traveler profile required'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {
+                    'error': (
+                        'Traveler profile not found. Sign in with a traveler account '
+                        'that has completed registration.'
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = CommunityPostCreateSerializer(
             data=request.data,
             context={'author': viewer},
@@ -211,7 +389,7 @@ def community_feed(request):
                 CommunityPostSerializer(post, context={'request': request, 'viewer_profile': viewer}).data,
                 status=status.HTTP_201_CREATED,
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return _validation_error_response(serializer)
 
     post_type = request.query_params.get('post_type')
     queryset = CommunityPost.objects.select_related('author', 'destination').all()
