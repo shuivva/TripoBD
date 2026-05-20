@@ -99,6 +99,7 @@ class TravelStatsSerializer(serializers.ModelSerializer):
             'destinations_visited',
             'stories_posted',
             'reviews_written',
+            'connections_count',
             'leaderboard_rank',
         ]
 

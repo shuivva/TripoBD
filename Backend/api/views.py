@@ -22,6 +22,7 @@ from .models import (
     TravelPreferences,
     TravelStats,
 )
+from .dashboard import build_traveler_dashboard
 from .serializers import (
     DestinationListSerializer,
     DestinationDetailSerializer,
@@ -367,6 +368,14 @@ def _get_traveler_profile_or_404(user_id):
     TravelStats.objects.get_or_create(user_profile=profile)
     AccountSettings.objects.get_or_create(user_profile=profile)
     return profile
+
+
+@api_view(['GET'])
+def traveler_dashboard(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(build_traveler_dashboard(profile, request))
 
 
 @api_view(['GET'])

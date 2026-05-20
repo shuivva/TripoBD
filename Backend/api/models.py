@@ -102,6 +102,7 @@ class Destination(models.Model):
     summary = models.TextField(blank=True)
     description = models.TextField(blank=True)
     hero = models.URLField(blank=True)
+    weekly_views = models.PositiveIntegerField(default=0)
     coords_lat = models.FloatField(null=True, blank=True)
     coords_lng = models.FloatField(null=True, blank=True)
 
@@ -175,6 +176,7 @@ class TravelStats(models.Model):
     destinations_visited = models.PositiveIntegerField(default=0)
     stories_posted = models.PositiveIntegerField(default=0)
     reviews_written = models.PositiveIntegerField(default=0)
+    connections_count = models.PositiveIntegerField(default=0)
     leaderboard_rank = models.PositiveIntegerField(null=True, blank=True)
 
     class Meta:
@@ -193,6 +195,7 @@ class TripStory(models.Model):
     content = models.TextField()
     cover_photo = models.ImageField(upload_to='story_covers/', null=True, blank=True)
     photos = models.JSONField(default=list, blank=True, help_text='List of photo URLs')
+    likes_count = models.PositiveIntegerField(default=0)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -276,6 +279,83 @@ class Guide(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class TourRoom(models.Model):
+    name = models.CharField(max_length=200)
+    destination = models.ForeignKey(
+        Destination,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='tour_rooms',
+    )
+    start_datetime = models.DateTimeField()
+    end_datetime = models.DateTimeField()
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'api_tourroom'
+        ordering = ['start_datetime']
+
+    def __str__(self):
+        return self.name
+
+
+class TourRoomMembership(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='memberships',
+        db_column='room_id',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='tour_room_memberships',
+        db_column='user_id',
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+    is_admin = models.BooleanField(default=False)
+    unread_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'api_tourroommembership'
+        unique_together = ('room', 'user')
+
+    def __str__(self):
+        return f'{self.user.username} in {self.room.name}'
+
+
+class TravelerNotification(models.Model):
+    NOTIFICATION_TYPES = [
+        ('booking', 'Booking Update'),
+        ('invite', 'Group Invite'),
+        ('review', 'Review Reminder'),
+        ('update', 'General Update'),
+        ('reminder', 'Reminder'),
+    ]
+
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES)
+    title = models.CharField(max_length=200, blank=True, default='')
+    message = models.TextField()
+    icon = models.CharField(max_length=10, default='📌')
+    link = models.CharField(max_length=255, blank=True, default='')
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'notifications'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.get_notification_type_display()}: {self.message[:40]}'
 
 
 class Route(models.Model):

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
 from django.utils import timezone
-from datetime import date
+from datetime import date, datetime, timedelta
 from api.models import (
     Destination,
     Attraction,
@@ -18,6 +18,9 @@ from api.models import (
     Wishlist,
     TripStory,
     AccountSettings,
+    TourRoom,
+    TourRoomMembership,
+    TravelerNotification,
 )
 
 SAMPLE_DESTINATIONS = [
@@ -130,28 +133,33 @@ class Command(BaseCommand):
 
             self.stdout.write(f'Processed destination: {dest.name}')
 
-        # Guides
-        Guide.objects.all().delete()
-        for g in SAMPLE_GUIDES:
-            Guide.objects.create(name=g['name'], location=g['location'], rating=g['rating'], bio=g.get('bio',''))
-        self.stdout.write('Guides seeded')
+        # Guides / routes (optional — DB schema may include extra columns)
+        try:
+            Guide.objects.all().delete()
+            for g in SAMPLE_GUIDES:
+                Guide.objects.create(name=g['name'], location=g['location'], rating=g['rating'], bio=g.get('bio', ''))
+            self.stdout.write('Guides seeded')
+        except Exception as exc:
+            self.stdout.write(self.style.WARNING(f'Skipped guides seed: {exc}'))
 
-        # Routes
-        Route.objects.all().delete()
-        for r in SAMPLE_ROUTES:
-            Route.objects.create(
-                from_location=r['from'],
-                to_location=r['to'],
-                mode=r['mode'],
-                operator=r['operator'],
-                fare=r['fare'],
-                duration=r['duration'],
-                departure=r['departure'],
-                travel_class=r['travel_class'],
-                tips=r.get('tips',''),
-                path=r.get('path',[]),
-            )
-        self.stdout.write('Routes seeded')
+        try:
+            Route.objects.all().delete()
+            for r in SAMPLE_ROUTES:
+                Route.objects.create(
+                    from_location=r['from'],
+                    to_location=r['to'],
+                    mode=r['mode'],
+                    operator=r['operator'],
+                    fare=r['fare'],
+                    duration=r['duration'],
+                    departure=r['departure'],
+                    travel_class=r['travel_class'],
+                    tips=r.get('tips', ''),
+                    path=r.get('path', []),
+                )
+            self.stdout.write('Routes seeded')
+        except Exception as exc:
+            self.stdout.write(self.style.WARNING(f'Skipped routes seed: {exc}'))
 
         # Traveler profile sample
         user, created = User.objects.get_or_create(
@@ -190,10 +198,11 @@ class Command(BaseCommand):
         TravelStats.objects.update_or_create(
             user_profile=profile,
             defaults={
-                'total_trips_logged': 8,
-                'destinations_visited': 12,
+                'total_trips_logged': 12,
+                'destinations_visited': 8,
                 'stories_posted': 3,
                 'reviews_written': 5,
+                'connections_count': 156,
                 'leaderboard_rank': 14,
             },
         )
@@ -227,10 +236,22 @@ class Command(BaseCommand):
         UserBadge.objects.get_or_create(user_profile=profile, badge=explorer_badge)
         UserBadge.objects.get_or_create(user_profile=profile, badge=storyteller_badge)
 
+        # Weekly view counts for trending
+        Destination.objects.filter(slug='sundarbans').update(weekly_views=15200)
+        Destination.objects.filter(slug='coxs-bazar').update(weekly_views=12500)
+
         Wishlist.objects.filter(user_profile=profile).delete()
-        wishlist_dest = Destination.objects.filter(slug='coxs-bazar').first()
-        if wishlist_dest:
-            Wishlist.objects.create(user_profile=profile, destination=wishlist_dest, notes='Plan for winter')
+        for slug, notes in [
+            ('coxs-bazar', 'Plan for winter'),
+            ('sundarbans', 'Wildlife safari'),
+        ]:
+            dest = Destination.objects.filter(slug=slug).first()
+            if dest:
+                Wishlist.objects.get_or_create(
+                    user_profile=profile,
+                    destination=dest,
+                    defaults={'notes': notes},
+                )
 
         TripStory.objects.filter(user_profile=profile).delete()
         story_dest = Destination.objects.filter(slug='sundarbans').first()
@@ -249,6 +270,130 @@ class Command(BaseCommand):
                 title='Draft: River Journey',
                 content='Notes and memories from the river journey.',
                 status='draft',
+            )
+
+        # Second traveler for community trip stories
+        author_user, _ = User.objects.get_or_create(
+            username='traveler2',
+            defaults={'email': 'traveler2@example.com'},
+        )
+        author_user.set_password('Traveler@123')
+        author_user.save()
+        author_profile, _ = UserProfile.objects.update_or_create(
+            user=author_user,
+            defaults={
+                'full_name': 'Emma Wilson',
+                'phone_number': '01700000001',
+                'date_of_birth': date(1992, 3, 8),
+                'gender': 'female',
+                'division': 'chittagong',
+                'district': "Cox's Bazar",
+                'user_type': 'traveler',
+                'is_email_verified': True,
+            },
+        )
+        TravelPreferences.objects.get_or_create(user_profile=author_profile)
+        TravelStats.objects.get_or_create(user_profile=author_profile)
+        AccountSettings.objects.get_or_create(user_profile=author_profile)
+
+        cox_dest = Destination.objects.filter(slug='coxs-bazar').first()
+        if cox_dest and story_dest:
+            TripStory.objects.filter(user_profile=author_profile).delete()
+            TripStory.objects.create(
+                user_profile=author_profile,
+                destination=cox_dest,
+                title='Beach Sunset',
+                content='Golden hour on the longest beach.',
+                status='published',
+                published_at=timezone.now(),
+                likes_count=234,
+                photos=[cox_dest.hero],
+            )
+            TripStory.objects.create(
+                user_profile=author_profile,
+                destination=story_dest,
+                title='Mangrove Morning',
+                content='Early boat ride through the channels.',
+                status='published',
+                published_at=timezone.now(),
+                likes_count=189,
+                photos=[story_dest.hero],
+            )
+
+        # Tour rooms and memberships
+        sundarbans = Destination.objects.filter(slug='sundarbans').first()
+        coxs = Destination.objects.filter(slug='coxs-bazar').first()
+        today = date.today()
+
+        TourRoomMembership.objects.filter(user=user).delete()
+        TourRoom.objects.filter(name__in=[
+            'Sundarbans Wildlife Expedition',
+            "Cox's Bazar Beach Group",
+            'Dhaka Weekend Explorers',
+        ]).delete()
+
+        def _room_dates(start_day_offset, duration_days):
+            start = timezone.make_aware(
+                datetime.combine(today + timedelta(days=start_day_offset), datetime.min.time())
+            )
+            end = timezone.make_aware(
+                datetime.combine(
+                    today + timedelta(days=start_day_offset + duration_days),
+                    datetime.min.time(),
+                )
+            )
+            return start, end
+
+        if sundarbans:
+            start, end = _room_dates(45, 7)
+            upcoming_room = TourRoom.objects.create(
+                name='Sundarbans Wildlife Expedition',
+                destination=sundarbans,
+                start_datetime=start,
+                end_datetime=end,
+                description='Boat safari and mangrove exploration.',
+            )
+            TourRoomMembership.objects.create(user=user, room=upcoming_room, unread_count=0)
+
+        if coxs:
+            start, end = _room_dates(90, 5)
+            beach_room = TourRoom.objects.create(
+                name="Cox's Bazar Beach Group",
+                destination=coxs,
+                start_datetime=start,
+                end_datetime=end,
+                description='Beach walks and seafood tours.',
+            )
+            TourRoomMembership.objects.create(user=user, room=beach_room, unread_count=5)
+
+        if sundarbans:
+            start, end = _room_dates(-10, 3)
+            explorers_room = TourRoom.objects.create(
+                name='Dhaka Weekend Explorers',
+                destination=sundarbans,
+                start_datetime=start,
+                end_datetime=end,
+                description='City heritage walk.',
+            )
+            TourRoomMembership.objects.create(user=user, room=explorers_room, unread_count=12)
+
+        # Notifications
+        TravelerNotification.objects.filter(user_profile=profile).delete()
+        notification_seed = [
+            ('booking', 'Your Sundarbans tour is confirmed!', '✅', 2),
+            ('invite', 'Sarah invited you to "Cox\'s Bazar Beach Group"', '🎉', 5),
+            ('review', "Don't forget to review your Dhaka weekend trip", '⭐', 24),
+            ('update', 'New destinations added to your wishlist', '📍', 48),
+            ('reminder', 'Your Sundarbans trip starts in 45 days', '✈️', 72),
+        ]
+        for ntype, message, icon, hours_ago in notification_seed:
+            TravelerNotification.objects.create(
+                user_profile=profile,
+                notification_type=ntype,
+                title=message[:200],
+                message=message,
+                icon=icon,
+                created_at=timezone.now() - timedelta(hours=hours_ago),
             )
 
         self.stdout.write('Traveler profile seeded')

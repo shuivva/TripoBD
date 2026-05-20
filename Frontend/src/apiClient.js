@@ -38,6 +38,12 @@ export async function getTravelerProfile(userId) {
   return res.json()
 }
 
+export async function getTravelerDashboard(userId) {
+  const res = await fetch(`${API_BASE}/traveler/dashboard/${userId}/`)
+  if (!res.ok) throw new Error('Failed to load traveler dashboard')
+  return res.json()
+}
+
 export async function updateTravelerProfile(userId, payload) {
   const res = await fetch(`${API_BASE}/traveler/profile/${userId}/update/`, {
     method: 'PATCH',

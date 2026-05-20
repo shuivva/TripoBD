@@ -1,78 +1,94 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { getTravelerDashboard } from '../apiClient'
+
+const quickActions = [
+  { icon: '🧭', label: 'Explore Destinations', color: 'from-blue-500 to-cyan-400', to: '/discover' },
+  { icon: '📅', label: 'Plan a Trip', color: 'from-purple-500 to-pink-400', to: '/discover' },
+  { icon: '👥', label: 'Join a Group', color: 'from-green-500 to-emerald-400', to: '/traveler/room' },
+  { icon: '🤖', label: 'Chat with AI', color: 'from-orange-500 to-amber-400', to: null },
+  { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-indigo-500 to-violet-400', to: '/discover' },
+]
+
+function computeCountdown(targetDate) {
+  const target = new Date(`${targetDate}T00:00:00`)
+  const now = new Date()
+  let diff = Math.max(0, target - now)
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  diff -= days * 1000 * 60 * 60 * 24
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  diff -= hours * 1000 * 60 * 60
+  const minutes = Math.floor(diff / (1000 * 60))
+  diff -= minutes * 1000 * 60
+  const seconds = Math.floor(diff / 1000)
+  return { days, hours, minutes, seconds }
+}
 
 export default function TravelerDashboard() {
-  const [countdown, setCountdown] = useState({ days: 12, hours: 8, minutes: 45, seconds: 30 })
+  const navigate = useNavigate()
+  const userId = useMemo(() => localStorage.getItem('userId'), [])
+  const [dashboard, setDashboard] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [showChat, setShowChat] = useState(false)
 
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCountdown(prev => {
-        let { days, hours, minutes, seconds } = prev
-        if (seconds > 0) seconds--
-        else {
-          seconds = 59
-          if (minutes > 0) minutes--
-          else {
-            minutes = 59
-            if (hours > 0) hours--
-            else {
-              hours = 23
-              if (days > 0) days--
-            }
-          }
-        }
-        return { days, hours, minutes, seconds }
-      })
-    }, 1000)
+    if (!userId) {
+      setError('Please sign in to view your dashboard.')
+      setLoading(false)
+      return
+    }
+
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const data = await getTravelerDashboard(userId)
+        setDashboard(data)
+      } catch {
+        setError('Unable to load dashboard. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [userId])
+
+  const upcomingTrip = dashboard?.upcoming_trip
+
+  useEffect(() => {
+    if (!upcomingTrip?.start_date) return undefined
+    const tick = () => setCountdown(computeCountdown(upcomingTrip.start_date))
+    tick()
+    const timer = setInterval(tick, 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [upcomingTrip?.start_date])
 
-  const quickActions = [
-    { icon: '🧭', label: 'Explore Destinations', color: 'from-blue-500 to-cyan-400' },
-    { icon: '📅', label: 'Plan a Trip', color: 'from-purple-500 to-pink-400' },
-    { icon: '👥', label: 'Join a Group', color: 'from-green-500 to-emerald-400' },
-    { icon: '🤖', label: 'Chat with AI', color: 'from-orange-500 to-amber-400' },
-    { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-indigo-500 to-violet-400' },
-  ]
+  const openAiChat = () => setShowChat(true)
 
-  const recommendedDestinations = [
-    { name: 'Santorini', country: 'Greece', image: 'https://images.unsplash.com/photo-1613395877344-13d4a8e0d49e?w=400', rating: 4.9 },
-    { name: 'Kyoto', country: 'Japan', image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400', rating: 4.8 },
-    { name: 'Machu Picchu', country: 'Peru', image: 'https://images.unsplash.com/photo-1587595431973-160d0d94add1?w=400', rating: 4.9 },
-  ]
+  if (loading) {
+    return (
+      <main className="page-shell">
+        <p className="dashboard-status">Loading your dashboard…</p>
+      </main>
+    )
+  }
 
-  const tourRooms = [
-    { name: 'Bali Adventure 2024', members: 24, unread: 5, image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=100' },
-    { name: 'European Backpackers', members: 156, unread: 12, image: 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=100' },
-    { name: 'Solo Female Travelers', members: 89, unread: 0, image: 'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?w=100' },
-  ]
+  if (error || !dashboard) {
+    return (
+      <main className="page-shell">
+        <p className="dashboard-status dashboard-error">{error || 'Dashboard unavailable.'}</p>
+        {!userId && (
+          <button type="button" className="button button-primary" onClick={() => navigate('/signin')}>
+            Sign In
+          </button>
+        )}
+      </main>
+    )
+  }
 
-  const notifications = [
-    { type: 'booking', message: 'Your tour to Bali is confirmed!', time: '2 hours ago', icon: '✅' },
-    { type: 'invite', message: 'Sarah invited you to "Japan Explorers"', time: '5 hours ago', icon: '🎉' },
-    { type: 'review', message: 'Don\'t forget to review your Paris trip', time: '1 day ago', icon: '⭐' },
-    { type: 'update', message: 'New destinations added to your wishlist', time: '2 days ago', icon: '📍' },
-    { type: 'reminder', message: 'Your flight to Tokyo departs in 3 days', time: '3 days ago', icon: '✈️' },
-  ]
-
-  const trendingDestinations = [
-    { name: 'Amalfi Coast', country: 'Italy', image: 'https://images.unsplash.com/photo-1633321088355-d0f8c1ea794c?w=400', views: '12.5K' },
-    { name: 'Petra', country: 'Jordan', image: 'https://images.unsplash.com/photo-1579606032821-4e6161c81571?w=400', views: '9.8K' },
-    { name: 'Northern Lights', country: 'Iceland', image: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?w=400', views: '15.2K' },
-  ]
-
-  const tripStories = [
-    { author: 'Emma Wilson', destination: 'Maldives', image: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=400', likes: 234 },
-    { author: 'James Chen', destination: 'Swiss Alps', image: 'https://images.unsplash.com/photo-1530122037265-a5f1f91d3b99?w=400', likes: 189 },
-    { author: 'Sofia Rodriguez', destination: 'Morocco', image: 'https://images.unsplash.com/photo-1489710437720-ebb67ec84dd2?w=400', likes: 156 },
-  ]
-
-  const wishlist = [
-    { name: 'Bora Bora', country: 'French Polynesia', image: 'https://images.unsplash.com/photo-1537366220283-7af955e1c8f4?w=300' },
-    { name: 'Dubai', country: 'UAE', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=300' },
-    { name: 'New Zealand', country: 'Oceania', image: 'https://images.unsplash.com/photo-1507699622177-3888e5877e2c?w=300' },
-    { name: 'Iceland', country: 'Europe', image: 'https://images.unsplash.com/photo-1476610182048-b716b8518aae?w=300' },
-  ]
+  const { welcome, recommended_destinations, tour_rooms, notifications, trending_destinations, trip_stories, wishlist, ai_assistant } = dashboard
 
   return (
     <main className="page-shell">
@@ -80,23 +96,27 @@ export default function TravelerDashboard() {
       <section className="welcome-banner">
         <div className="welcome-content">
           <div className="avatar-section">
-            <div className="avatar">JD</div>
+            {welcome.avatar_url ? (
+              <img src={welcome.avatar_url} alt="" className="avatar avatar-image" />
+            ) : (
+              <div className="avatar">{welcome.avatar_initials}</div>
+            )}
             <div className="welcome-text">
-              <h1>Welcome back, Saidul!</h1>
+              <h1>Welcome back, {welcome.first_name}!</h1>
               <p>Ready for your next adventure?</p>
             </div>
           </div>
           <div className="welcome-stats">
             <div className="stat">
-              <strong>12</strong>
+              <strong>{welcome.stats.trips}</strong>
               <span>Trips</span>
             </div>
             <div className="stat">
-              <strong>8</strong>
+              <strong>{welcome.stats.countries}</strong>
               <span>Countries</span>
             </div>
             <div className="stat">
-              <strong>156</strong>
+              <strong>{welcome.stats.connections}</strong>
               <span>Connections</span>
             </div>
           </div>
@@ -104,180 +124,224 @@ export default function TravelerDashboard() {
       </section>
 
       {/* Upcoming Trip Card */}
-      <section className="upcoming-trip-section">
-        <div className="upcoming-trip-card">
-          <div className="trip-image" style={{ backgroundImage: 'url(https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800)' }}>
-            <div className="trip-badge">Upcoming Trip</div>
-          </div>
-          <div className="trip-details">
-            <h2>Bali Adventure Tour</h2>
-            <p className="trip-dates">March 15 - March 25, 2024</p>
-            <div className="countdown">
-              <div className="countdown-item">
-                <span className="countdown-value">{countdown.days}</span>
-                <span className="countdown-label">Days</span>
-              </div>
-              <div className="countdown-item">
-                <span className="countdown-value">{countdown.hours}</span>
-                <span className="countdown-label">Hours</span>
-              </div>
-              <div className="countdown-item">
-                <span className="countdown-value">{countdown.minutes}</span>
-                <span className="countdown-label">Minutes</span>
-              </div>
-              <div className="countdown-item">
-                <span className="countdown-value">{countdown.seconds}</span>
-                <span className="countdown-label">Seconds</span>
-              </div>
+      {upcomingTrip && (
+        <section className="upcoming-trip-section">
+          <div className="upcoming-trip-card">
+            <div
+              className="trip-image"
+              style={{ backgroundImage: `url(${upcomingTrip.image})` }}
+            >
+              <div className="trip-badge">Upcoming Trip</div>
             </div>
-            <button className="button button-primary">View Trip Details</button>
+            <div className="trip-details">
+              <h2>{upcomingTrip.title}</h2>
+              <p className="trip-dates">{upcomingTrip.date_label}</p>
+              <div className="countdown">
+                <div className="countdown-item">
+                  <span className="countdown-value">{countdown.days}</span>
+                  <span className="countdown-label">Days</span>
+                </div>
+                <div className="countdown-item">
+                  <span className="countdown-value">{countdown.hours}</span>
+                  <span className="countdown-label">Hours</span>
+                </div>
+                <div className="countdown-item">
+                  <span className="countdown-value">{countdown.minutes}</span>
+                  <span className="countdown-label">Minutes</span>
+                </div>
+                <div className="countdown-item">
+                  <span className="countdown-value">{countdown.seconds}</span>
+                  <span className="countdown-label">Seconds</span>
+                </div>
+              </div>
+              <Link
+                to={upcomingTrip.destination_slug ? `/destination/${upcomingTrip.destination_slug}` : '/traveler/room'}
+                className="button button-primary"
+              >
+                View Trip Details
+              </Link>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Quick Actions */}
       <section className="quick-actions-section">
         <h2>Quick Actions</h2>
         <div className="quick-actions-grid">
-          {quickActions.map((action, index) => (
-            <button key={index} className={`quick-action-card bg-gradient-to-r ${action.color}`}>
-              <span className="action-icon">{action.icon}</span>
-              <span className="action-label">{action.label}</span>
-            </button>
-          ))}
+          {quickActions.map((action) => {
+            const className = `quick-action-card bg-gradient-to-r ${action.color}`
+            if (action.label === 'Chat with AI') {
+              return (
+                <button key={action.label} type="button" className={className} onClick={openAiChat}>
+                  <span className="action-icon">{action.icon}</span>
+                  <span className="action-label">{action.label}</span>
+                </button>
+              )
+            }
+            if (action.to) {
+              return (
+                <Link key={action.label} to={action.to} className={className}>
+                  <span className="action-icon">{action.icon}</span>
+                  <span className="action-label">{action.label}</span>
+                </Link>
+              )
+            }
+            return (
+              <button key={action.label} type="button" className={className}>
+                <span className="action-icon">{action.icon}</span>
+                <span className="action-label">{action.label}</span>
+              </button>
+            )
+          })}
         </div>
       </section>
 
       {/* Main Grid */}
       <div className="dashboard-main-grid">
-        {/* Left Column */}
         <div className="dashboard-left">
-          {/* Recommended Destinations */}
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Recommended for You</h3>
-              <a href="#" className="view-all">View All</a>
+              <Link to="/discover" className="view-all">View All</Link>
             </div>
-            <div className="destinations-row">
-              {recommendedDestinations.map((dest, index) => (
-                <div key={index} className="destination-card-mini">
-                  <div className="dest-image" style={{ backgroundImage: `url(${dest.image})` }}></div>
-                  <div className="dest-info">
-                    <h4>{dest.name}</h4>
-                    <p>{dest.country}</p>
-                    <div className="dest-rating">⭐ {dest.rating}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {recommended_destinations.length === 0 ? (
+              <p className="empty-hint">Set travel preferences in your profile to get recommendations.</p>
+            ) : (
+              <div className="destinations-row">
+                {recommended_destinations.map((dest) => (
+                  <Link
+                    key={dest.slug}
+                    to={`/destination/${dest.slug}`}
+                    className="destination-card-mini"
+                  >
+                    <div className="dest-image" style={{ backgroundImage: `url(${dest.image})` }} />
+                    <div className="dest-info">
+                      <h4>{dest.name}</h4>
+                      <p>{dest.country}</p>
+                      <div className="dest-rating">⭐ {dest.rating}</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Active Tour Rooms */}
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Active Tour Rooms</h3>
-              <a href="#" className="view-all">View All</a>
+              <Link to="/traveler/room" className="view-all">View All</Link>
             </div>
-            <div className="tour-rooms-list">
-              {tourRooms.map((room, index) => (
-                <div key={index} className="tour-room-item">
-                  <div className="room-avatar" style={{ backgroundImage: `url(${room.image})` }}></div>
-                  <div className="room-info">
-                    <h4>{room.name}</h4>
-                    <p>{room.members} members</p>
-                  </div>
-                  {room.unread > 0 && <div className="unread-badge">{room.unread}</div>}
-                </div>
-              ))}
-            </div>
+            {tour_rooms.length === 0 ? (
+              <p className="empty-hint">You have not joined any tour rooms yet.</p>
+            ) : (
+              <div className="tour-rooms-list">
+                {tour_rooms.map((room) => (
+                  <Link key={room.id} to="/traveler/room" className="tour-room-item">
+                    <div className="room-avatar" style={{ backgroundImage: `url(${room.image})` }} />
+                    <div className="room-info">
+                      <h4>{room.name}</h4>
+                      <p>{room.members} members</p>
+                    </div>
+                    {room.unread > 0 && <div className="unread-badge">{room.unread}</div>}
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Recent Notifications */}
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Recent Notifications</h3>
-              <a href="#" className="view-all">View All</a>
             </div>
-            <div className="notifications-list">
-              {notifications.map((notif, index) => (
-                <div key={index} className="notification-item">
-                  <span className="notif-icon">{notif.icon}</span>
-                  <div className="notif-content">
-                    <p>{notif.message}</p>
-                    <span className="notif-time">{notif.time}</span>
+            {notifications.length === 0 ? (
+              <p className="empty-hint">No notifications yet.</p>
+            ) : (
+              <div className="notifications-list">
+                {notifications.map((notif) => (
+                  <div key={notif.id} className="notification-item">
+                    <span className="notif-icon">{notif.icon}</span>
+                    <div className="notif-content">
+                      <p>{notif.message}</p>
+                      <span className="notif-time">{notif.time}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
         </div>
 
-        {/* Right Column */}
         <div className="dashboard-right">
-          {/* Trending This Week */}
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Trending This Week</h3>
-              <a href="#" className="view-all">View All</a>
+              <Link to="/discover" className="view-all">View All</Link>
             </div>
             <div className="trending-grid">
-              {trendingDestinations.map((dest, index) => (
-                <div key={index} className="trending-card">
-                  <div className="trending-image" style={{ backgroundImage: `url(${dest.image})` }}></div>
+              {trending_destinations.map((dest) => (
+                <Link key={dest.slug} to={`/destination/${dest.slug}`} className="trending-card">
+                  <div className="trending-image" style={{ backgroundImage: `url(${dest.image})` }} />
                   <div className="trending-info">
                     <h4>{dest.name}</h4>
                     <p>{dest.country}</p>
                     <span className="trending-views">👁️ {dest.views} views</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
 
-          {/* Trip Stories Feed */}
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Trip Stories</h3>
-              <a href="#" className="view-all">View All</a>
+              <Link to="/traveler/community" className="view-all">View All</Link>
             </div>
-            <div className="stories-grid">
-              {tripStories.map((story, index) => (
-                <div key={index} className="story-card-mini">
-                  <div className="story-image" style={{ backgroundImage: `url(${story.image})` }}></div>
-                  <div className="story-info">
-                    <p className="story-author">by {story.author}</p>
-                    <h4>{story.destination}</h4>
-                    <span className="story-likes">❤️ {story.likes}</span>
+            {trip_stories.length === 0 ? (
+              <p className="empty-hint">No trip stories from the community yet.</p>
+            ) : (
+              <div className="stories-grid">
+                {trip_stories.map((story) => (
+                  <div key={story.id} className="story-card-mini">
+                    <div className="story-image" style={{ backgroundImage: `url(${story.image})` }} />
+                    <div className="story-info">
+                      <p className="story-author">by {story.author}</p>
+                      <h4>{story.destination}</h4>
+                      <span className="story-likes">❤️ {story.likes}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </section>
 
-          {/* Wishlist Preview */}
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Your Wishlist</h3>
-              <a href="#" className="view-all">View All</a>
+              <Link to="/traveler/profile" className="view-all">View All</Link>
             </div>
-            <div className="wishlist-grid">
-              {wishlist.map((item, index) => (
-                <div key={index} className="wishlist-item">
-                  <div className="wishlist-image" style={{ backgroundImage: `url(${item.image})` }}></div>
-                  <div className="wishlist-info">
-                    <h4>{item.name}</h4>
-                    <p>{item.country}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            {wishlist.length === 0 ? (
+              <p className="empty-hint">Save destinations to build your wishlist.</p>
+            ) : (
+              <div className="wishlist-grid">
+                {wishlist.map((item) => (
+                  <Link key={item.slug} to={`/destination/${item.slug}`} className="wishlist-item">
+                    <div className="wishlist-image" style={{ backgroundImage: `url(${item.image})` }} />
+                    <div className="wishlist-info">
+                      <h4>{item.name}</h4>
+                      <p>{item.country}</p>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
 
       {/* AI Travel Assistant Chat Bubble */}
       <div className={`ai-chat-bubble ${showChat ? 'open' : ''}`}>
-        <button className="chat-toggle" onClick={() => setShowChat(!showChat)}>
+        <button type="button" className="chat-toggle" onClick={() => setShowChat(!showChat)}>
           {showChat ? '✕' : '🤖'}
         </button>
         {showChat && (
@@ -288,18 +352,45 @@ export default function TravelerDashboard() {
             </div>
             <div className="chat-messages">
               <div className="message bot">
-                <p>Hello! I'm your AI travel assistant. How can I help you plan your next adventure?</p>
+                <p>{ai_assistant?.greeting}</p>
               </div>
             </div>
             <div className="chat-input">
               <input type="text" placeholder="Type your message..." />
-              <button>Send</button>
+              <button type="button">Send</button>
             </div>
           </div>
         )}
       </div>
 
       <style>{`
+        .dashboard-status {
+          text-align: center;
+          padding: 48px 16px;
+          color: var(--text-muted);
+        }
+        .dashboard-error {
+          color: #dc2626;
+        }
+        .empty-hint {
+          margin: 0;
+          color: var(--text-muted);
+          font-size: 0.9rem;
+        }
+        .avatar-image {
+          object-fit: cover;
+          background: none;
+        }
+        .quick-action-card {
+          text-decoration: none;
+        }
+        .destination-card-mini,
+        .tour-room-item,
+        .trending-card,
+        .wishlist-item {
+          text-decoration: none;
+          color: inherit;
+        }
         .welcome-banner {
           background: linear-gradient(135deg, rgba(91,140,255,0.15), rgba(110,231,183,0.1));
           border: 1px solid rgba(91,140,255,0.2);
