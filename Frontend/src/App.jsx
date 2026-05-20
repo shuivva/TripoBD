@@ -6,6 +6,7 @@ import Footer from './components/Footer'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
 import DestinationDetail from './pages/DestinationDetail'
+import FeaturedDestinations from './pages/FeaturedDestinations'
 import RoutesPage from './pages/Routes'
 import About from './pages/About'
 import FAQ from './pages/FAQ'
@@ -21,11 +22,12 @@ import NotFound from './pages/NotFound'
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       {/* choose nav based on current location */}
       <NavSelector />
       <Routes>
         <Route path="/" element={<Home />} />
+        <Route path="/featured-destinations" element={<FeaturedDestinations />} />
         <Route path="/discover" element={<Discover />} />
         <Route path="/destination/:slug" element={<DestinationDetail />} />
         <Route path="/routes" element={<RoutesPage />} />
