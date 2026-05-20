@@ -11,7 +11,13 @@ from django.core.mail import send_mail
 from django.conf import settings
 import traceback
 import json
-from .models import Destination, Guide, Route, UserProfile, OTPVerification, ServiceProvider
+from .models import (
+    Destination, Guide, Route, UserProfile, OTPVerification, ServiceProvider,
+    TourRoom, TourRoomMember, TourRoomItinerary, TourRoomExpense, TourRoomPoll,
+    TourRoomPollVote, TourRoomChecklist, TourGroup as TourGroupModel, TourGroupMember,
+    Booking, TravelerReview, TripStory, Notification, Wishlist, TravelPreferences,
+    Badge, UserBadge, AIConversation, SupportTicket
+)
 from .serializers import (
     DestinationListSerializer,
     DestinationDetailSerializer,
@@ -21,6 +27,24 @@ from .serializers import (
     UserProfileSerializer,
     OTPVerificationSerializer,
     ServiceProviderSerializer,
+    TourRoomSerializer,
+    TourRoomMemberSerializer,
+    TourRoomItinerarySerializer,
+    TourRoomExpenseSerializer,
+    TourRoomPollSerializer,
+    TourRoomChecklistSerializer,
+    TourGroupModelSerializer,
+    TourGroupMemberSerializer,
+    BookingSerializer,
+    TravelerReviewSerializer,
+    TripStorySerializer,
+    NotificationSerializer,
+    WishlistSerializer,
+    TravelPreferencesSerializer,
+    BadgeSerializer,
+    UserBadgeSerializer,
+    AIConversationSerializer,
+    SupportTicketSerializer,
 )
 
 
@@ -452,3 +476,484 @@ def update_service_provider_profile(request):
         print('update_service_provider_profile error:', e)
         traceback.print_exc()
         return Response({'error': 'Server error', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def get_traveler_profile(request):
+    user_id = request.query_params.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(id=user_id)
+        if not hasattr(user, 'profile'):
+            return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        profile = user.profile
+
+        response_data = {
+            'user_id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'full_name': profile.full_name,
+            'phone_number': profile.phone_number,
+            'date_of_birth': profile.date_of_birth,
+            'gender': profile.gender,
+            'division': profile.division,
+            'district': profile.district,
+            'profile_photo': profile.profile_photo.url if profile.profile_photo else None,
+            'national_id': profile.national_id,
+            'user_type': profile.user_type,
+            'is_email_verified': profile.is_email_verified,
+            'created_at': profile.created_at,
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print('get_traveler_profile error:', e)
+        traceback.print_exc()
+        return Response({'error': 'Server error', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['PUT', 'PATCH'])
+@parser_classes([MultiPartParser, FormParser])
+def update_traveler_profile(request):
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(id=user_id)
+        if not hasattr(user, 'profile'):
+            return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        profile = user.profile
+
+        # Update user profile fields
+        if request.data.get('full_name'):
+            profile.full_name = request.data.get('full_name')
+        if request.data.get('phone_number'):
+            profile.phone_number = request.data.get('phone_number')
+        if request.data.get('profile_photo'):
+            profile.profile_photo = request.data.get('profile_photo')
+        if request.data.get('date_of_birth'):
+            profile.date_of_birth = request.data.get('date_of_birth')
+        if request.data.get('gender'):
+            profile.gender = request.data.get('gender')
+        if request.data.get('division'):
+            profile.division = request.data.get('division')
+        if request.data.get('district'):
+            profile.district = request.data.get('district')
+        if request.data.get('national_id'):
+            profile.national_id = request.data.get('national_id')
+
+        profile.save()
+
+        return Response({'message': 'Profile updated successfully'}, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        print('update_traveler_profile error:', e)
+        traceback.print_exc()
+        return Response({'error': 'Server error', 'details': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# Tour Room API Views
+@api_view(['GET', 'POST'])
+def tour_rooms(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if user_id:
+            tour_rooms = TourRoom.objects.filter(members__id=user_id, is_archived=False)
+        else:
+            tour_rooms = TourRoom.objects.filter(room_type='public', is_archived=False)
+        serializer = TourRoomSerializer(tour_rooms, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = TourRoomSerializer(data=request.data)
+        if serializer.is_valid():
+            tour_room = serializer.save(created_by=request.user if request.user.is_authenticated else User.objects.first())
+            # Add creator as owner
+            TourRoomMember.objects.create(
+                tour_room=tour_room,
+                user=tour_room.created_by,
+                role='owner'
+            )
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def tour_room_detail(request, pk):
+    try:
+        tour_room = TourRoom.objects.get(pk=pk)
+    except TourRoom.DoesNotExist:
+        return Response({'error': 'Tour room not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = TourRoomSerializer(tour_room)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = TourRoomSerializer(tour_room, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        tour_room.delete()
+        return Response({'message': 'Tour room deleted successfully'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+def join_tour_room(request, pk):
+    try:
+        tour_room = TourRoom.objects.get(pk=pk)
+        user_id = request.data.get('user_id')
+        user = User.objects.get(id=user_id)
+        
+        if tour_room.members.count() >= tour_room.max_members:
+            return Response({'error': 'Tour room is full'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        TourRoomMember.objects.create(
+            tour_room=tour_room,
+            user=user,
+            role='member'
+        )
+        return Response({'message': 'Joined tour room successfully'}, status=status.HTTP_200_OK)
+    except TourRoom.DoesNotExist:
+        return Response({'error': 'Tour room not found'}, status=status.HTTP_404_NOT_FOUND)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# Tour Group API Views
+@api_view(['GET', 'POST'])
+def tour_groups(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if user_id:
+            tour_groups = TourGroupModel.objects.filter(members__id=user_id)
+        else:
+            tour_groups = TourGroupModel.objects.filter(is_open=True)
+        serializer = TourGroupModelSerializer(tour_groups, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = TourGroupModelSerializer(data=request.data)
+        if serializer.is_valid():
+            tour_group = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def join_tour_group(request, pk):
+    try:
+        tour_group = TourGroupModel.objects.get(pk=pk)
+        user_id = request.data.get('user_id')
+        user = User.objects.get(id=user_id)
+        
+        if tour_group.current_members >= tour_group.max_members:
+            return Response({'error': 'Tour group is full'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        TourGroupMember.objects.create(
+            tour_group=tour_group,
+            user=user,
+            is_approved=(tour_group.membership_fee == 0)
+        )
+        tour_group.current_members += 1
+        tour_group.save()
+        return Response({'message': 'Joined tour group successfully'}, status=status.HTTP_200_OK)
+    except TourGroupModel.DoesNotExist:
+        return Response({'error': 'Tour group not found'}, status=status.HTTP_404_NOT_FOUND)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# Booking API Views
+@api_view(['GET', 'POST'])
+def bookings(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if user_id:
+            bookings = Booking.objects.filter(user_id=user_id)
+        else:
+            bookings = Booking.objects.all()
+        serializer = BookingSerializer(bookings, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = BookingSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def booking_detail(request, pk):
+    try:
+        booking = Booking.objects.get(pk=pk)
+    except Booking.DoesNotExist:
+        return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = BookingSerializer(booking)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = BookingSerializer(booking, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        booking.delete()
+        return Response({'message': 'Booking deleted successfully'}, status=status.HTTP_200_OK)
+
+
+# Review API Views
+@api_view(['GET', 'POST'])
+def traveler_reviews(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if user_id:
+            reviews = TravelerReview.objects.filter(user_id=user_id)
+        else:
+            reviews = TravelerReview.objects.all()
+        serializer = TravelerReviewSerializer(reviews, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = TravelerReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def traveler_review_detail(request, pk):
+    try:
+        review = TravelerReview.objects.get(pk=pk)
+    except TravelerReview.DoesNotExist:
+        return Response({'error': 'Review not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = TravelerReviewSerializer(review)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = TravelerReviewSerializer(review, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        review.delete()
+        return Response({'message': 'Review deleted successfully'}, status=status.HTTP_200_OK)
+
+
+# Trip Story API Views
+@api_view(['GET', 'POST'])
+def trip_stories(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if user_id:
+            stories = TripStory.objects.filter(user_id=user_id)
+        else:
+            stories = TripStory.objects.filter(status='published')
+        serializer = TripStorySerializer(stories, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = TripStorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+def trip_story_detail(request, pk):
+    try:
+        story = TripStory.objects.get(pk=pk)
+    except TripStory.DoesNotExist:
+        return Response({'error': 'Story not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        serializer = TripStorySerializer(story)
+        return Response(serializer.data)
+    
+    elif request.method == 'PUT':
+        serializer = TripStorySerializer(story, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    elif request.method == 'DELETE':
+        story.delete()
+        return Response({'message': 'Story deleted successfully'}, status=status.HTTP_200_OK)
+
+
+# Notification API Views
+@api_view(['GET'])
+def notifications(request):
+    user_id = request.query_params.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    notifications = Notification.objects.filter(user_id=user_id)[:20]
+    serializer = NotificationSerializer(notifications, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['PUT'])
+def mark_notification_read(request, pk):
+    try:
+        notification = Notification.objects.get(pk=pk)
+        notification.is_read = True
+        notification.save()
+        return Response({'message': 'Notification marked as read'}, status=status.HTTP_200_OK)
+    except Notification.DoesNotExist:
+        return Response({'error': 'Notification not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['PUT'])
+def mark_all_notifications_read(request):
+    user_id = request.data.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    Notification.objects.filter(user_id=user_id, is_read=False).update(is_read=True)
+    return Response({'message': 'All notifications marked as read'}, status=status.HTTP_200_OK)
+
+
+# Wishlist API Views
+@api_view(['GET', 'POST'])
+def wishlist(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        wishlist_items = Wishlist.objects.filter(user_id=user_id)
+        serializer = WishlistSerializer(wishlist_items, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = WishlistSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+def wishlist_item(request, pk):
+    try:
+        item = Wishlist.objects.get(pk=pk)
+        item.delete()
+        return Response({'message': 'Item removed from wishlist'}, status=status.HTTP_200_OK)
+    except Wishlist.DoesNotExist:
+        return Response({'error': 'Wishlist item not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# Travel Preferences API Views
+@api_view(['GET', 'PUT'])
+def travel_preferences(request):
+    user_id = request.query_params.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(id=user_id)
+        if hasattr(user, 'travel_preferences'):
+            preferences = user.travel_preferences
+        else:
+            preferences = TravelPreferences.objects.create(user=user)
+        
+        if request.method == 'GET':
+            serializer = TravelPreferencesSerializer(preferences)
+            return Response(serializer.data)
+        
+        elif request.method == 'PUT':
+            serializer = TravelPreferencesSerializer(preferences, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+# Badge API Views
+@api_view(['GET'])
+def badges(request):
+    badges = Badge.objects.all()
+    serializer = BadgeSerializer(badges, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def user_badges(request):
+    user_id = request.query_params.get('user_id')
+    if not user_id:
+        return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user_badges = UserBadge.objects.filter(user_id=user_id)
+    serializer = UserBadgeSerializer(user_badges, many=True)
+    return Response(serializer.data)
+
+
+# AI Conversation API Views
+@api_view(['GET', 'POST'])
+def ai_conversations(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        conversations = AIConversation.objects.filter(user_id=user_id)[:10]
+        serializer = AIConversationSerializer(conversations, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = AIConversationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# Support Ticket API Views
+@api_view(['GET', 'POST'])
+def support_tickets(request):
+    user_id = request.query_params.get('user_id')
+    
+    if request.method == 'GET':
+        if not user_id:
+            return Response({'error': 'user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        tickets = SupportTicket.objects.filter(user_id=user_id)
+        serializer = SupportTicketSerializer(tickets, many=True)
+        return Response(serializer.data)
+    
+    elif request.method == 'POST':
+        serializer = SupportTicketSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

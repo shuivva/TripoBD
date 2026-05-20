@@ -3,8 +3,15 @@ import { Link, NavLink } from 'react-router-dom'
 const navLinks = [
   { label: 'Dashboard', to: '/traveler/dashboard' },
   { label: 'Profile', to: '/traveler/profile' },
-  { label: 'Room', to: '/traveler/room' },
+  { label: 'Tour Room', to: '/traveler/room' },
   { label: 'Community', to: '/traveler/community' },
+  { label: 'AI Assistant', to: '/traveler/ai-assistant' },
+  { label: 'Tour Guides', to: '/traveler/tour-guides' },
+  { label: 'Reviews & Stories', to: '/traveler/reviews-stories' },
+  { label: 'Notifications', to: '/traveler/notifications' },
+  { label: 'Wishlist', to: '/traveler/wishlist' },
+  { label: 'Settings', to: '/traveler/settings' },
+  { label: 'Help', to: '/traveler/help' },
 ]
 
 export default function TravelerNavigation() {

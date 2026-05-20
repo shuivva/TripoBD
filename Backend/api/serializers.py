@@ -1,6 +1,13 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Destination, Attraction, Accommodation, Review, TourGroup, Guide, Route, UserProfile, OTPVerification, ServiceProvider
+from .models import (
+    Destination, Attraction, Accommodation, Review, TourGroup, Guide, Route, 
+    UserProfile, OTPVerification, ServiceProvider, TourRoom, TourRoomMember,
+    TourRoomItinerary, TourRoomExpense, TourRoomPoll, TourRoomPollVote,
+    TourRoomChecklist, TourGroup as TourGroupModel, TourGroupMember, Booking,
+    TravelerReview, TripStory, Notification, Wishlist, TravelPreferences,
+    Badge, UserBadge, AIConversation, SupportTicket
+)
 
 
 class AttractionSerializer(serializers.ModelSerializer):
@@ -160,4 +167,248 @@ class ServiceProviderSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'nid_scan': {'required': True},
             'certification': {'required': False},
+        }
+
+
+# Tour Room Serializers
+class TourRoomSerializer(serializers.ModelSerializer):
+    created_by = serializers.StringRelatedField(read_only=True)
+    member_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TourRoom
+        fields = [
+            'id', 'name', 'destination', 'start_date', 'end_date',
+            'max_members', 'room_type', 'cover_photo', 'created_by',
+            'member_count', 'created_at', 'is_archived'
+        ]
+        extra_kwargs = {
+            'cover_photo': {'required': False}
+        }
+    
+    def get_member_count(self, obj):
+        return obj.members.count()
+
+
+class TourRoomMemberSerializer(serializers.ModelSerializer):
+    username = serializers.StringRelatedField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = TourRoomMember
+        fields = ['id', 'user', 'username', 'role', 'joined_at']
+
+
+class TourRoomItinerarySerializer(serializers.ModelSerializer):
+    assigned_to_name = serializers.StringRelatedField(source='assigned_to.username', read_only=True)
+    
+    class Meta:
+        model = TourRoomItinerary
+        fields = [
+            'id', 'day', 'activity', 'time', 'location',
+            'assigned_to', 'assigned_to_name', 'notes', 'order'
+        ]
+
+
+class TourRoomExpenseSerializer(serializers.ModelSerializer):
+    paid_by_name = serializers.StringRelatedField(source='paid_by.username', read_only=True)
+    
+    class Meta:
+        model = TourRoomExpense
+        fields = [
+            'id', 'description', 'amount', 'paid_by', 'paid_by_name',
+            'date', 'is_settled'
+        ]
+
+
+class TourRoomPollSerializer(serializers.ModelSerializer):
+    created_by_name = serializers.StringRelatedField(source='created_by.username', read_only=True)
+    
+    class Meta:
+        model = TourRoomPoll
+        fields = [
+            'id', 'question', 'poll_type', 'options', 'created_by',
+            'created_by_name', 'created_at', 'closes_at', 'is_closed'
+        ]
+
+
+class TourRoomChecklistSerializer(serializers.ModelSerializer):
+    assigned_to_name = serializers.StringRelatedField(source='assigned_to.username', read_only=True)
+    
+    class Meta:
+        model = TourRoomChecklist
+        fields = [
+            'id', 'item', 'assigned_to', 'assigned_to_name',
+            'is_completed', 'completed_at'
+        ]
+
+
+# Tour Group Serializers
+class TourGroupModelSerializer(serializers.ModelSerializer):
+    created_by = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), write_only=True, required=False)
+    created_by_name = serializers.StringRelatedField(source='created_by.username', read_only=True)
+    member_count = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TourGroupModel
+        fields = [
+            'id', 'name', 'destination', 'start_date', 'end_date',
+            'description', 'max_members', 'current_members', 'member_count',
+            'membership_fee', 'is_open', 'cover_photo', 'created_by',
+            'created_by_name', 'contact_method', 'created_at'
+        ]
+        extra_kwargs = {
+            'cover_photo': {'required': False}
+        }
+    
+    def get_member_count(self, obj):
+        return obj.members.count()
+
+
+class TourGroupMemberSerializer(serializers.ModelSerializer):
+    username = serializers.StringRelatedField(source='user.username', read_only=True)
+    
+    class Meta:
+        model = TourGroupMember
+        fields = ['id', 'user', 'username', 'joined_at', 'is_approved']
+
+
+# Booking Serializers
+class BookingSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    service_provider_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Booking
+        fields = [
+            'id', 'user', 'booking_type', 'service_provider', 'service_provider_name',
+            'destination', 'start_date', 'end_date', 'group_size',
+            'total_amount', 'status', 'special_requirements',
+            'created_at', 'updated_at'
+        ]
+    
+    def get_service_provider_name(self, obj):
+        if obj.service_provider:
+            return obj.service_provider.user.profile.full_name
+        return None
+
+
+# Review Serializers
+class TravelerReviewSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    destination_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TravelerReview
+        fields = [
+            'id', 'user', 'review_type', 'destination', 'destination_name',
+            'title', 'rating_accessibility', 'rating_safety', 'rating_value',
+            'rating_scenery', 'rating_food', 'rating_cleanliness', 'rating_staff',
+            'overall_rating', 'text', 'photos', 'is_verified',
+            'created_at', 'updated_at'
+        ]
+    
+    def get_destination_name(self, obj):
+        return obj.destination.name if obj.destination else None
+
+
+# Trip Story Serializers
+class TripStorySerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    destination_name = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = TripStory
+        fields = [
+            'id', 'user', 'title', 'destination', 'destination_name',
+            'cover_photo', 'content', 'status', 'likes_count',
+            'views_count', 'created_at', 'published_at', 'updated_at'
+        ]
+        extra_kwargs = {
+            'cover_photo': {'required': False}
+        }
+    
+    def get_destination_name(self, obj):
+        return obj.destination.name if obj.destination else None
+
+
+# Notification Serializers
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = [
+            'id', 'category', 'title', 'message', 'link',
+            'is_read', 'created_at'
+        ]
+
+
+# Wishlist Serializers
+class WishlistSerializer(serializers.ModelSerializer):
+    destination_name = serializers.SerializerMethodField()
+    destination_region = serializers.SerializerMethodField()
+    destination_hero = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = Wishlist
+        fields = [
+            'id', 'destination', 'destination_name', 'destination_region',
+            'destination_hero', 'note', 'added_at'
+        ]
+    
+    def get_destination_name(self, obj):
+        return obj.destination.name
+    
+    def get_destination_region(self, obj):
+        return obj.destination.region
+    
+    def get_destination_hero(self, obj):
+        return obj.destination.hero
+
+
+# Travel Preferences Serializers
+class TravelPreferencesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TravelPreferences
+        fields = [
+            'id', 'user', 'travel_style', 'budget_range',
+            'preferred_destinations', 'group_size_preference',
+            'languages', 'favorite_categories', 'updated_at'
+        ]
+
+
+# Badge Serializers
+class BadgeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Badge
+        fields = ['id', 'name', 'description', 'icon', 'requirement']
+
+
+class UserBadgeSerializer(serializers.ModelSerializer):
+    badge = BadgeSerializer(read_only=True)
+    
+    class Meta:
+        model = UserBadge
+        fields = ['id', 'badge', 'earned_at']
+
+
+# AI Conversation Serializers
+class AIConversationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AIConversation
+        fields = [
+            'id', 'language', 'messages', 'created_at', 'updated_at'
+        ]
+
+
+# Support Ticket Serializers
+class SupportTicketSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField(read_only=True)
+    
+    class Meta:
+        model = SupportTicket
+        fields = [
+            'id', 'user', 'subject', 'description', 'category',
+            'screenshot', 'status', 'admin_reply', 'created_at', 'updated_at'
+        ]
+        extra_kwargs = {
+            'screenshot': {'required': False}
         }

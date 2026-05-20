@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import Navigation from './components/Navigation'
 import TravelerNavigation from './components/TravelerNavigation'
+import ServiceProviderNavigation from './components/ServiceProviderNavigation'
 import { useLocation } from 'react-router-dom'
 import Footer from './components/Footer'
 import Home from './pages/Home'
@@ -17,6 +18,13 @@ import SignIn from './pages/SignIn'
 import TravelerProfile from './pages/TravelerProfile'
 import TravelerRoom from './pages/TravelerRoom'
 import TravelerCommunity from './pages/TravelerCommunity'
+import AITravelAssistant from './pages/AITravelAssistant'
+import TourGuides from './pages/TourGuides'
+import ReviewsStories from './pages/ReviewsStories'
+import Notifications from './pages/Notifications'
+import Wishlist from './pages/Wishlist'
+import Settings from './pages/Settings'
+import HelpSupport from './pages/HelpSupport'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -40,6 +48,13 @@ function App() {
         <Route path="/traveler/profile" element={<TravelerProfile />} />
         <Route path="/traveler/room" element={<TravelerRoom />} />
         <Route path="/traveler/community" element={<TravelerCommunity />} />
+        <Route path="/traveler/ai-assistant" element={<AITravelAssistant />} />
+        <Route path="/traveler/tour-guides" element={<TourGuides />} />
+        <Route path="/traveler/reviews-stories" element={<ReviewsStories />} />
+        <Route path="/traveler/notifications" element={<Notifications />} />
+        <Route path="/traveler/wishlist" element={<Wishlist />} />
+        <Route path="/traveler/settings" element={<Settings />} />
+        <Route path="/traveler/help" element={<HelpSupport />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Footer />
@@ -51,6 +66,9 @@ function NavSelector() {
   const location = useLocation()
   if (location.pathname.startsWith('/traveler')) {
     return <TravelerNavigation />
+  }
+  if (location.pathname.startsWith('/service-provider')) {
+    return <ServiceProviderNavigation />
   }
   return <Navigation />
 }

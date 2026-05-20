@@ -178,7 +178,7 @@ export default function ServiceProviderDashboard() {
 
         <div className="spd-sidebar-footer">
           <button className="spd-logout-btn" onClick={() => setShowLogoutConfirm(true)}>
-            🚪 Logout
+            Logout
           </button>
         </div>
       </aside>
@@ -197,7 +197,6 @@ export default function ServiceProviderDashboard() {
             {activeTab}
           </div>
           <div className="spd-topbar-right">
-            <div className="spd-notif-btn">🔔 <span className="spd-notif-badge">3</span></div>
             <div className="spd-topbar-avatar">{MOCK_PROVIDER.avatar}</div>
           </div>
         </header>
