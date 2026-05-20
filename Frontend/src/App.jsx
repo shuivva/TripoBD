@@ -16,6 +16,7 @@ import SignIn from './pages/SignIn'
 import TravelerProfile from './pages/TravelerProfile'
 import TravelerRoom from './pages/TravelerRoom'
 import TravelerCommunity from './pages/TravelerCommunity'
+import GroupDetail from './pages/GroupDetail'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -37,6 +38,7 @@ function App() {
         <Route path="/traveler/profile" element={<TravelerProfile />} />
         <Route path="/traveler/room" element={<TravelerRoom />} />
         <Route path="/traveler/community" element={<TravelerCommunity />} />
+        <Route path="/traveler/community/groups/:groupId" element={<GroupDetail />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Footer />

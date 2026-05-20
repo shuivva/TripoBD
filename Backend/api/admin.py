@@ -10,6 +10,13 @@ from .models import (
     TourRoom,
     TourRoomMembership,
     TravelerNotification,
+    OpenTourGroup,
+    OpenTourGroupItinerary,
+    OpenTourGroupMember,
+    CommunityPost,
+    CommunityPostComment,
+    CommunityPostLike,
+    TravelerFollow,
 )
 
 
@@ -23,3 +30,10 @@ admin.site.register(Route)
 admin.site.register(TourRoom)
 admin.site.register(TourRoomMembership)
 admin.site.register(TravelerNotification)
+admin.site.register(OpenTourGroup)
+admin.site.register(OpenTourGroupItinerary)
+admin.site.register(OpenTourGroupMember)
+admin.site.register(CommunityPost)
+admin.site.register(CommunityPostComment)
+admin.site.register(CommunityPostLike)
+admin.site.register(TravelerFollow)

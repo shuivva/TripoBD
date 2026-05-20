@@ -5,7 +5,7 @@ import { getTravelerDashboard } from '../apiClient'
 const quickActions = [
   { icon: '🧭', label: 'Explore Destinations', color: 'from-blue-500 to-cyan-400', to: '/discover' },
   { icon: '📅', label: 'Plan a Trip', color: 'from-purple-500 to-pink-400', to: '/discover' },
-  { icon: '👥', label: 'Join a Group', color: 'from-green-500 to-emerald-400', to: '/traveler/room' },
+  { icon: '👥', label: 'Join a Group', color: 'from-green-500 to-emerald-400', to: '/traveler/community?tab=browse' },
   { icon: '🤖', label: 'Chat with AI', color: 'from-orange-500 to-amber-400', to: null },
   { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-indigo-500 to-violet-400', to: '/discover' },
 ]

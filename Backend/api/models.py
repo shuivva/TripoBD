@@ -358,6 +358,194 @@ class TravelerNotification(models.Model):
         return f'{self.get_notification_type_display()}: {self.message[:40]}'
 
 
+class OpenTourGroup(models.Model):
+    JOIN_TYPE_CHOICES = [
+        ('open', 'Open'),
+        ('request', 'Request Approval'),
+    ]
+    FEE_TYPE_CHOICES = [
+        ('free', 'Free'),
+        ('paid', 'Paid'),
+    ]
+    CONTACT_METHOD_CHOICES = [
+        ('app', 'In App'),
+        ('phone', 'Phone'),
+        ('email', 'Email'),
+    ]
+
+    organizer = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='organized_groups',
+    )
+    destination = models.ForeignKey(
+        Destination,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='open_groups',
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField()
+    cover_image = models.URLField(blank=True)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    max_members = models.PositiveIntegerField()
+    join_type = models.CharField(max_length=20, choices=JOIN_TYPE_CHOICES, default='open')
+    fee_type = models.CharField(max_length=20, choices=FEE_TYPE_CHOICES, default='free')
+    membership_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    contact_method = models.CharField(max_length=20, choices=CONTACT_METHOD_CHOICES, default='app')
+    contact_value = models.CharField(max_length=200, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'open_tour_groups'
+        ordering = ['start_date']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def member_count(self):
+        return self.members.filter(status='joined').count()
+
+
+class OpenTourGroupItinerary(models.Model):
+    group = models.ForeignKey(
+        OpenTourGroup,
+        on_delete=models.CASCADE,
+        related_name='itinerary',
+    )
+    day_number = models.PositiveSmallIntegerField()
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        db_table = 'open_tour_group_itinerary'
+        ordering = ['day_number', 'sort_order']
+
+
+class OpenTourGroupMember(models.Model):
+    ROLE_CHOICES = [
+        ('organizer', 'Organizer'),
+        ('member', 'Member'),
+    ]
+    STATUS_CHOICES = [
+        ('joined', 'Joined'),
+        ('pending', 'Pending'),
+        ('rejected', 'Rejected'),
+    ]
+
+    group = models.ForeignKey(
+        OpenTourGroup,
+        on_delete=models.CASCADE,
+        related_name='members',
+    )
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='group_memberships',
+    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='member')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='joined')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'open_tour_group_members'
+        unique_together = ('group', 'user_profile')
+
+
+class CommunityPost(models.Model):
+    POST_TYPE_CHOICES = [
+        ('story', 'Trip Story'),
+        ('photo', 'Photo Post'),
+        ('tip', 'Travel Tip'),
+    ]
+
+    author = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='community_posts',
+    )
+    post_type = models.CharField(max_length=20, choices=POST_TYPE_CHOICES)
+    title = models.CharField(max_length=200, blank=True)
+    content = models.TextField()
+    image_url = models.URLField(blank=True)
+    destination = models.ForeignKey(
+        Destination,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='community_posts',
+    )
+    likes_count = models.PositiveIntegerField(default=0)
+    comments_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'community_posts'
+        ordering = ['-created_at']
+
+
+class TravelerFollow(models.Model):
+    follower = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='following',
+    )
+    following = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='followers',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'traveler_follows'
+        unique_together = ('follower', 'following')
+
+
+class CommunityPostLike(models.Model):
+    post = models.ForeignKey(
+        CommunityPost,
+        on_delete=models.CASCADE,
+        related_name='likes',
+    )
+    user_profile = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='post_likes',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'community_post_likes'
+        unique_together = ('post', 'user_profile')
+
+
+class CommunityPostComment(models.Model):
+    post = models.ForeignKey(
+        CommunityPost,
+        on_delete=models.CASCADE,
+        related_name='comments',
+    )
+    author = models.ForeignKey(
+        UserProfile,
+        on_delete=models.CASCADE,
+        related_name='post_comments',
+    )
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'community_post_comments'
+        ordering = ['created_at']
+
+
 class Route(models.Model):
     from_location = models.CharField(max_length=120)
     to_location = models.CharField(max_length=120)

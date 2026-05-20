@@ -18,6 +18,16 @@ from .views import (
     traveler_change_password,
     traveler_profile_photo_update,
 )
+from .community_views import (
+    open_groups_list_create,
+    open_group_detail,
+    open_group_join,
+    my_groups,
+    community_feed,
+    post_like_toggle,
+    post_comments,
+    follow_traveler,
+)
 
 urlpatterns = [
     path('destinations/', DestinationListAPIView.as_view(), name='destination-list'),
@@ -37,4 +47,12 @@ urlpatterns = [
     path('traveler/profile/<int:user_id>/account-settings/', traveler_account_settings_update, name='traveler-account-settings-update'),
     path('traveler/profile/<int:user_id>/change-password/', traveler_change_password, name='traveler-change-password'),
     path('traveler/profile/<int:user_id>/photo/', traveler_profile_photo_update, name='traveler-profile-photo-update'),
+    path('community/groups/', open_groups_list_create, name='community-groups'),
+    path('community/groups/my/', my_groups, name='community-my-groups'),
+    path('community/groups/<int:group_id>/', open_group_detail, name='community-group-detail'),
+    path('community/groups/<int:group_id>/join/', open_group_join, name='community-group-join'),
+    path('community/feed/', community_feed, name='community-feed'),
+    path('community/posts/<int:post_id>/like/', post_like_toggle, name='community-post-like'),
+    path('community/posts/<int:post_id>/comments/', post_comments, name='community-post-comments'),
+    path('community/follow/', follow_traveler, name='community-follow'),
 ]
