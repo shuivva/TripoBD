@@ -1,5 +1,5 @@
 import { Link, NavLink } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const navLinks = [
   { label: 'Home', to: '/' },
@@ -13,6 +13,23 @@ const navLinks = [
 export default function Navigation() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [registerDropdownOpen, setRegisterDropdownOpen] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId')
+    setIsAuthenticated(!!userId)
+  }, [])
+
+  const handleLogout = () => {
+    localStorage.removeItem('userId')
+    fetch('http://localhost:8000/api/auth/logout/', { method: 'POST', credentials: 'include' })
+      .then(() => {
+        window.location.href = '/'
+      })
+      .catch(() => {
+        window.location.href = '/'
+      })
+  }
 
   return (
     <header className="site-header">
@@ -49,30 +66,43 @@ export default function Navigation() {
         ))}
       </nav>
       <div className="header-actions">
-        <div className="register-dropdown">
-          <button
-            className="button button-outline register-toggle"
-            onClick={() => setRegisterDropdownOpen(!registerDropdownOpen)}
-          >
-            Register
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 9l6 6 6-6" />
-            </svg>
-          </button>
-          {registerDropdownOpen && (
-            <div className="register-dropdown-menu">
-              <Link to="/register/traveler" className="register-dropdown-item" onClick={() => setRegisterDropdownOpen(false)}>
-                Traveler Register
-              </Link>
-              <Link to="/register/service-provider" className="register-dropdown-item" onClick={() => setRegisterDropdownOpen(false)}>
-                Provider Register
-              </Link>
+        {isAuthenticated ? (
+          <>
+            <Link to="/traveler/profile" className="button button-outline">
+              Profile
+            </Link>
+            <button className="button button-tertiary" onClick={handleLogout}>
+              Log out
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="register-dropdown">
+              <button
+                className="button button-outline register-toggle"
+                onClick={() => setRegisterDropdownOpen(!registerDropdownOpen)}
+              >
+                Register
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
+              {registerDropdownOpen && (
+                <div className="register-dropdown-menu">
+                  <Link to="/register/traveler" className="register-dropdown-item" onClick={() => setRegisterDropdownOpen(false)}>
+                    Traveler Register
+                  </Link>
+                  <Link to="/register/service-provider" className="register-dropdown-item" onClick={() => setRegisterDropdownOpen(false)}>
+                    Provider Register
+                  </Link>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <Link to="/signin" className="button button-primary">
-          Sign In
-        </Link>
+            <Link to="/signin" className="button button-primary">
+              Sign In
+            </Link>
+          </>
+        )}
       </div>
     </header>
   )

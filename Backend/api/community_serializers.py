@@ -16,7 +16,8 @@ def _profile_mini(profile, request=None):
     photo = None
     if profile.profile_photo:
         try:
-            photo = request.build_absolute_uri(profile.profile_photo.url) if request else profile.profile_photo.url
+            import base64
+            photo = f'data:image/jpeg;base64,{base64.b64encode(profile.profile_photo).decode("utf-8")}'
         except Exception:
             photo = None
     parts = (profile.full_name or '').split()

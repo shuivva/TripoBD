@@ -173,7 +173,7 @@ export default function TravelerProfile() {
   const rawStats = profile.travel_stats || emptyProfile.travel_stats
   const stats = {
     ...rawStats,
-    leaderboard_rank: rawStats.leaderboard_rank ?? '—',
+    leaderboard_rank: rawStats.leaderboard_rank ?? 'ï¿½',
   }
   const preferences = profile.travel_preferences || emptyProfile.travel_preferences
   const accountSettings = profile.account_settings || emptyProfile.account_settings
@@ -188,7 +188,10 @@ export default function TravelerProfile() {
         <div className="profile-identity">
           <div className="profile-photo">
             {profile.profile_photo ? (
-              <img src={profile.profile_photo} alt="Profile" />
+              <img 
+                src={profile.profile_photo.startsWith('data:') ? profile.profile_photo : `data:image/jpeg;base64,${profile.profile_photo}`} 
+                alt="Profile" 
+              />
             ) : (
               <div className="profile-photo-placeholder">{profile.full_name?.charAt(0) || 'T'}</div>
             )}
@@ -330,7 +333,7 @@ export default function TravelerProfile() {
             profile.wishlist.map(item => (
               <div key={item.id} className="list-card">
                 <h4>{item.destination?.name}</h4>
-                <p>{item.destination?.region} · {item.destination?.category}</p>
+                <p>{item.destination?.region} ï¿½ {item.destination?.category}</p>
                 <small>Added {new Date(item.added_at).toLocaleDateString()}</small>
               </div>
             ))

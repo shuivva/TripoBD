@@ -18,7 +18,8 @@ export default function SignIn() {
       const res = await fetch('http://localhost:8000/api/auth/login/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: form.identifier, password: form.password })
+        body: JSON.stringify({ identifier: form.identifier, password: form.password }),
+        credentials: 'include'
       })
 
       const data = await res.json()
@@ -26,7 +27,6 @@ export default function SignIn() {
         if (data.user_id) {
           localStorage.setItem('userId', data.user_id)
         }
-        // In a real app you'd store a token; for now just redirect
         navigate('/traveler/dashboard')
       } else {
         setError(data.error || 'Login failed')

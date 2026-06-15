@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
 import Navigation from './components/Navigation'
 import TravelerNavigation from './components/TravelerNavigation'
 import { useLocation } from 'react-router-dom'
@@ -18,6 +19,14 @@ import TravelerProfile from './pages/TravelerProfile'
 import TravelerRoom from './pages/TravelerRoom'
 import TravelerCommunity from './pages/TravelerCommunity'
 import GroupDetail from './pages/GroupDetail'
+import TourGuides from './pages/TourGuides'
+import TourGuideDetail from './pages/TourGuideDetail'
+import BoatCharterDetail from './pages/BoatCharterDetail'
+import VehicleRentalDetail from './pages/VehicleRentalDetail'
+import MyBookings from './pages/MyBookings'
+import BoatCharters from './pages/BoatCharters'
+import VehicleRentals from './pages/VehicleRentals'
+import LocalServices from './pages/LocalServices'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -41,6 +50,11 @@ function App() {
         <Route path="/traveler/room" element={<TravelerRoom />} />
         <Route path="/traveler/community" element={<TravelerCommunity />} />
         <Route path="/traveler/community/groups/:groupId" element={<GroupDetail />} />
+        <Route path="/traveler/local-services" element={<LocalServices />} />
+        <Route path="/traveler/tour-guides/:guideId" element={<TourGuideDetail />} />
+        <Route path="/traveler/boat-charters/:charterId" element={<BoatCharterDetail />} />
+        <Route path="/traveler/vehicle-rentals/:rentalId" element={<VehicleRentalDetail />} />
+        <Route path="/traveler/bookings" element={<MyBookings />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
       <Footer />
@@ -50,7 +64,15 @@ function App() {
 
 function NavSelector() {
   const location = useLocation()
-  if (location.pathname.startsWith('/traveler')) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId')
+    setIsAuthenticated(!!userId)
+  }, [])
+
+  // Show TravelerNavigation if authenticated or if on traveler pages
+  if (isAuthenticated || location.pathname.startsWith('/traveler')) {
     return <TravelerNavigation />
   }
   return <Navigation />

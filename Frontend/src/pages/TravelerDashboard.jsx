@@ -97,7 +97,11 @@ export default function TravelerDashboard() {
         <div className="welcome-content">
           <div className="avatar-section">
             {welcome.avatar_url ? (
-              <img src={welcome.avatar_url} alt="" className="avatar avatar-image" />
+              <img 
+                src={welcome.avatar_url.startsWith('data:') ? welcome.avatar_url : `data:image/jpeg;base64,${welcome.avatar_url}`} 
+                alt="" 
+                className="avatar avatar-image" 
+              />
             ) : (
               <div className="avatar">{welcome.avatar_initials}</div>
             )}

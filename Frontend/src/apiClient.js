@@ -226,3 +226,44 @@ export async function updateTravelerProfilePhoto(userId, file) {
   if (!res.ok) throw new Error('Failed to update profile photo')
   return res.json()
 }
+
+// Default export for generic API client
+const apiClient = {
+  async get(url) {
+    const res = await fetch(`${API_BASE}${url}`, {
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(`GET ${url} failed (${res.status})`)
+    return res.json()
+  },
+  async post(url, data) {
+    const res = await fetch(`${API_BASE}${url}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(`POST ${url} failed (${res.status})`)
+    return res.json()
+  },
+  async put(url, data) {
+    const res = await fetch(`${API_BASE}${url}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(`PUT ${url} failed (${res.status})`)
+    return res.json()
+  },
+  async delete(url) {
+    const res = await fetch(`${API_BASE}${url}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error(`DELETE ${url} failed (${res.status})`)
+    return res.json()
+  },
+}
+
+export default apiClient

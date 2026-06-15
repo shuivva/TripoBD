@@ -17,7 +17,8 @@ def _profile_photo_url(profile, request):
     if not profile.profile_photo:
         return None
     try:
-        return request.build_absolute_uri(profile.profile_photo.url)
+        import base64
+        return base64.b64encode(profile.profile_photo).decode('utf-8')
     except Exception:
         return None
 

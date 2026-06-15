@@ -5,6 +5,8 @@ const navLinks = [
   { label: 'Profile', to: '/traveler/profile' },
   { label: 'Room', to: '/traveler/room' },
   { label: 'Community', to: '/traveler/community' },
+  { label: 'Local Services', to: '/traveler/local-services' },
+  { label: 'My Bookings', to: '/traveler/bookings' },
 ]
 
 export default function TravelerNavigation() {

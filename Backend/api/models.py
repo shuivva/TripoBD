@@ -33,7 +33,7 @@ class UserProfile(models.Model):
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     division = models.CharField(max_length=20, choices=DIVISION_CHOICES)
     district = models.CharField(max_length=50)
-    profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
+    profile_photo = models.BinaryField(blank=True, null=True)
     national_id = models.CharField(max_length=20, blank=True, null=True)
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='traveler')
     is_email_verified = models.BooleanField(default=False)
@@ -282,6 +282,17 @@ class Guide(models.Model):
 
 
 class TourRoom(models.Model):
+    VISIBILITY_CHOICES = [
+        ('public', 'Public'),
+        ('private', 'Private'),
+    ]
+    
+    STATUS_CHOICES = [
+        ('active', 'Active'),
+        ('archived', 'Archived'),
+        ('deleted', 'Deleted'),
+    ]
+    
     name = models.CharField(max_length=200)
     destination = models.ForeignKey(
         Destination,
@@ -293,7 +304,13 @@ class TourRoom(models.Model):
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
     description = models.TextField(blank=True)
+    max_members = models.PositiveIntegerField(default=10)
+    visibility = models.CharField(max_length=10, choices=VISIBILITY_CHOICES, default='private')
+    cover_photo = models.BinaryField(blank=True, null=True)
+    invite_code = models.CharField(max_length=20, unique=True, blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='active')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'api_tourroom'
@@ -328,6 +345,315 @@ class TourRoomMembership(models.Model):
         return f'{self.user.username} in {self.room.name}'
 
 
+class ItineraryItem(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='itinerary_items',
+        db_column='room_id',
+    )
+    day_number = models.PositiveIntegerField()
+    activity_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+    location = models.CharField(max_length=200, blank=True)
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_activities',
+        db_column='assigned_to_id',
+    )
+    order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'itinerary_items'
+        ordering = ['day_number', 'order']
+
+    def __str__(self):
+        return f'Day {self.day_number}: {self.activity_name}'
+
+
+class Expense(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='expenses',
+        db_column='room_id',
+    )
+    description = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    payer = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='paid_expenses',
+        db_column='payer_id',
+    )
+    date = models.DateField()
+    category = models.CharField(max_length=50, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'expenses'
+        ordering = ['-date']
+
+    def __str__(self):
+        return f'{self.description}: {self.amount}'
+
+
+class ExpenseParticipant(models.Model):
+    expense = models.ForeignKey(
+        Expense,
+        on_delete=models.CASCADE,
+        related_name='participants',
+        db_column='expense_id',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='expense_participations',
+        db_column='user_id',
+    )
+    share_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    is_paid = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'expense_participants'
+        unique_together = ('expense', 'user')
+
+    def __str__(self):
+        return f'{self.user.username}: {self.share_amount}'
+
+
+class Poll(models.Model):
+    POLL_TYPE_CHOICES = [
+        ('yes_no', 'Yes/No'),
+        ('multiple_choice', 'Multiple Choice'),
+    ]
+    
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='polls',
+        db_column='room_id',
+    )
+    question = models.CharField(max_length=200)
+    poll_type = models.CharField(max_length=20, choices=POLL_TYPE_CHOICES, default='yes_no')
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='created_polls',
+        db_column='created_by_id',
+    )
+    deadline = models.DateTimeField(blank=True, null=True)
+    is_closed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'polls'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.question
+
+
+class PollOption(models.Model):
+    poll = models.ForeignKey(
+        Poll,
+        on_delete=models.CASCADE,
+        related_name='options',
+        db_column='poll_id',
+    )
+    option_text = models.CharField(max_length=200)
+    vote_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = 'poll_options'
+
+    def __str__(self):
+        return self.option_text
+
+
+class PollVote(models.Model):
+    poll = models.ForeignKey(
+        Poll,
+        on_delete=models.CASCADE,
+        related_name='votes',
+        db_column='poll_id',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='poll_votes',
+        db_column='user_id',
+    )
+    option = models.ForeignKey(
+        PollOption,
+        on_delete=models.CASCADE,
+        related_name='votes',
+        db_column='option_id',
+        null=True,
+        blank=True,
+    )
+    voted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'poll_votes'
+        unique_together = ('poll', 'user')
+
+    def __str__(self):
+        return f'{self.user.username} voted on {self.poll.question}'
+
+
+class ChecklistItem(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='checklist_items',
+        db_column='room_id',
+    )
+    item_name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    assigned_to = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_checklist_items',
+        db_column='assigned_to_id',
+    )
+    is_completed = models.BooleanField(default=False)
+    completed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='completed_checklist_items',
+        db_column='completed_by_id',
+    )
+    completed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'checklist_items'
+        ordering = ['is_completed', '-created_at']
+
+    def __str__(self):
+        return self.item_name
+
+
+class ChatMessage(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='chat_messages',
+        db_column='room_id',
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='chat_messages',
+        db_column='user_id',
+    )
+    message = models.TextField()
+    is_pinned = models.BooleanField(default=False)
+    reply_to = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='replies',
+        db_column='reply_to_id',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'chat_messages'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.username}: {self.message[:50]}'
+
+
+class ChatAttachment(models.Model):
+    message = models.ForeignKey(
+        ChatMessage,
+        on_delete=models.CASCADE,
+        related_name='attachments',
+        db_column='message_id',
+    )
+    file_name = models.CharField(max_length=255)
+    file_data = models.BinaryField()
+    file_type = models.CharField(max_length=50)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'chat_attachments'
+
+    def __str__(self):
+        return self.file_name
+
+
+class MapPin(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='map_pins',
+        db_column='room_id',
+    )
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='added_map_pins',
+        db_column='added_by_id',
+    )
+    name = models.CharField(max_length=200)
+    latitude = models.DecimalField(max_digits=9, decimal_places=6)
+    longitude = models.DecimalField(max_digits=9, decimal_places=6)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'map_pins'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.name
+
+
+class BookingNote(models.Model):
+    room = models.ForeignKey(
+        TourRoom,
+        on_delete=models.CASCADE,
+        related_name='booking_notes',
+        db_column='room_id',
+    )
+    added_by = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='booking_notes',
+        db_column='added_by_id',
+    )
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    booking_reference = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'booking_notes'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title
+
+
 class TravelerNotification(models.Model):
     NOTIFICATION_TYPES = [
         ('booking', 'Booking Update'),
@@ -357,6 +683,264 @@ class TravelerNotification(models.Model):
 
     def __str__(self):
         return f'{self.get_notification_type_display()}: {self.message[:40]}'
+
+
+# Tour Guide & Local Bookings Models
+
+class TourGuide(models.Model):
+    SERVICE_TYPE_CHOICES = [
+        ('guide', 'Tour Guide'),
+        ('driver', 'Driver'),
+        ('translator', 'Translator'),
+        ('photographer', 'Photographer'),
+        ('assistant', 'Travel Assistant'),
+    ]
+    LANGUAGE_CHOICES = [
+        ('english', 'English'),
+        ('bengali', 'Bengali'),
+        ('hindi', 'Hindi'),
+        ('arabic', 'Arabic'),
+        ('chinese', 'Chinese'),
+        ('french', 'French'),
+        ('german', 'German'),
+        ('spanish', 'Spanish'),
+        ('japanese', 'Japanese'),
+    ]
+
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='tour_guide')
+    service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
+    specialties = models.TextField(help_text='Comma-separated specialties')
+    languages = models.CharField(max_length=200, help_text='Comma-separated languages')
+    destinations = models.ManyToManyField(Destination, related_name='guides')
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    reviews_count = models.PositiveIntegerField(default=0)
+    bio = models.TextField(blank=True)
+    profile_photo = models.BinaryField(blank=True, null=True)
+    is_verified = models.BooleanField(default=False)
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'tour_guides'
+        ordering = ['-rating', '-reviews_count']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.get_service_type_display()}'
+
+
+class GuideAvailability(models.Model):
+    guide = models.ForeignKey(TourGuide, on_delete=models.CASCADE, related_name='availabilities')
+    date = models.DateField()
+    is_available = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'guide_availabilities'
+        unique_together = ['guide', 'date']
+        ordering = ['date']
+
+    def __str__(self):
+        return f'{self.guide.user.username} - {self.date}'
+
+
+class GuideReview(models.Model):
+    guide = models.ForeignKey(TourGuide, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guide_reviews')
+    rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    review_text = models.TextField()
+    photo = models.BinaryField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'guide_reviews'
+        ordering = ['-created_at']
+        unique_together = ['guide', 'user']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.guide.user.username} - {self.rating} stars'
+
+
+class GuideBooking(models.Model):
+    STATUS_CHOICES = [
+        ('requested', 'Requested'),
+        ('confirmed', 'Confirmed'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    guide = models.ForeignKey(TourGuide, on_delete=models.CASCADE, related_name='bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guide_bookings')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    group_size = models.PositiveIntegerField(default=1)
+    requirements = models.TextField(blank=True)
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='requested')
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'guide_bookings'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.guide.user.username} - {self.status}'
+
+
+class BoatCharter(models.Model):
+    BOAT_TYPE_CHOICES = [
+        ('speedboat', 'Speedboat'),
+        ('fishing_boat', 'Fishing Boat'),
+        ('houseboat', 'Houseboat'),
+        ('yacht', 'Yacht'),
+        ('sailboat', 'Sailboat'),
+    ]
+
+    name = models.CharField(max_length=200)
+    boat_type = models.CharField(max_length=20, choices=BOAT_TYPE_CHOICES)
+    destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='boat_charters')
+    capacity = models.PositiveIntegerField()
+    price_per_hour = models.DecimalField(max_digits=10, decimal_places=2)
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    description = models.TextField(blank=True)
+    features = models.TextField(blank=True, help_text='Comma-separated features')
+    photos = models.BinaryField(blank=True, null=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    reviews_count = models.PositiveIntegerField(default=0)
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'boat_charters'
+        ordering = ['-rating', '-reviews_count']
+
+    def __str__(self):
+        return f'{self.name} - {self.destination.name}'
+
+
+class BoatCharterReview(models.Model):
+    charter = models.ForeignKey(BoatCharter, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='boat_charter_reviews')
+    rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    review_text = models.TextField()
+    photo = models.BinaryField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'boat_charter_reviews'
+        ordering = ['-created_at']
+        unique_together = ['charter', 'user']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.charter.name} - {self.rating} stars'
+
+
+class BoatCharterBooking(models.Model):
+    STATUS_CHOICES = [
+        ('requested', 'Requested'),
+        ('confirmed', 'Confirmed'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    charter = models.ForeignKey(BoatCharter, on_delete=models.CASCADE, related_name='bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='boat_charter_bookings')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    group_size = models.PositiveIntegerField(default=1)
+    requirements = models.TextField(blank=True)
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='requested')
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'boat_charter_bookings'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.charter.name} - {self.status}'
+
+
+class VehicleRental(models.Model):
+    VEHICLE_TYPE_CHOICES = [
+        ('car', 'Car'),
+        ('suv', 'SUV'),
+        ('van', 'Van'),
+        ('bus', 'Bus'),
+        ('motorcycle', 'Motorcycle'),
+    ]
+
+    name = models.CharField(max_length=200)
+    vehicle_type = models.CharField(max_length=20, choices=VEHICLE_TYPE_CHOICES)
+    destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='vehicle_rentals')
+    capacity = models.PositiveIntegerField()
+    price_per_day = models.DecimalField(max_digits=10, decimal_places=2)
+    description = models.TextField(blank=True)
+    features = models.TextField(blank=True, help_text='Comma-separated features')
+    photos = models.BinaryField(blank=True, null=True)
+    rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    reviews_count = models.PositiveIntegerField(default=0)
+    is_available = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vehicle_rentals'
+        ordering = ['-rating', '-reviews_count']
+
+    def __str__(self):
+        return f'{self.name} - {self.destination.name}'
+
+
+class VehicleRentalReview(models.Model):
+    rental = models.ForeignKey(VehicleRental, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicle_rental_reviews')
+    rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
+    review_text = models.TextField()
+    photo = models.BinaryField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'vehicle_rental_reviews'
+        ordering = ['-created_at']
+        unique_together = ['rental', 'user']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.rental.name} - {self.rating} stars'
+
+
+class VehicleRentalBooking(models.Model):
+    STATUS_CHOICES = [
+        ('requested', 'Requested'),
+        ('confirmed', 'Confirmed'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    rental = models.ForeignKey(VehicleRental, on_delete=models.CASCADE, related_name='bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicle_rental_bookings')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    group_size = models.PositiveIntegerField(default=1)
+    requirements = models.TextField(blank=True)
+    message = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='requested')
+    total_price = models.DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'vehicle_rental_bookings'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.user.username} - {self.rental.name} - {self.status}'
 
 
 class OpenTourGroup(models.Model):
