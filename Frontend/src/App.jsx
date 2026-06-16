@@ -24,6 +24,7 @@ import AIAssistant from './pages/AIAssistant'
 import LocalBookings from './pages/LocalBookings'
 import NotificationsCentre from './pages/NotificationsCentre'
 import ReviewsAndStories from './pages/ReviewsAndStories'
+import AllStories from './pages/AllStories'
 import NotFound from './pages/NotFound'
 
 // Guide portal pages
@@ -74,6 +75,7 @@ function App() {
         <Route path="/traveler/bookings" element={<LocalBookings />} />
         <Route path="/traveler/notifications" element={<NotificationsCentre />} />
         <Route path="/traveler/reviews-stories" element={<ReviewsAndStories />} />
+        <Route path="/traveler/stories" element={<AllStories />} />
 
         {/* Guide portal routes */}
         <Route path="/guide/dashboard" element={<GuideDashboard />} />

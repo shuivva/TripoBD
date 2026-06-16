@@ -33,6 +33,7 @@ export default function LocalBookings() {
   const [requirements, setRequirements] = useState('')
   const [bookMessage, setBookMessage] = useState('')
   const [bookSubmitting, setBookSubmitting] = useState(false)
+  const [offeredFee, setOfferedFee] = useState('')
 
   // My bookings state
   const [bookings, setBookings] = useState([])
@@ -116,11 +117,13 @@ export default function LocalBookings() {
         group_size: groupSize,
         specific_requirements: requirements,
         message: bookMessage,
+        agreed_fee: parseFloat(offeredFee) || 0,
       }
       await bookServiceProvider(selectedSp.id, payload)
       setSuccess('Booking request sent successfully to organizer!')
       setShowBookForm(false)
       setSelectedSp(null)
+      setOfferedFee('')
       // Switch to my-bookings to view status
       setActiveTab('my-bookings')
       setTimeout(() => setSuccess(''), 4000)
@@ -313,6 +316,19 @@ export default function LocalBookings() {
                     <p>👥 Group Size: <strong>{b.group_size} travelers</strong></p>
                     {b.specific_requirements && <p>📝 Requirements: <em>{b.specific_requirements}</em></p>}
                     {b.message && <p>💬 Notes: <em>{b.message}</em></p>}
+                    {b.status === 'cancelled' && b.rejection_reason && (
+                      <div className="rejection-reason-box" style={{
+                        marginTop: '0.75rem',
+                        padding: '0.75rem',
+                        backgroundColor: '#fef2f2',
+                        border: '1.5px dashed #fecaca',
+                        borderRadius: '8px',
+                        color: '#991b1b',
+                        fontSize: '0.85rem'
+                      }}>
+                        <strong>🚫 Reason for Decline:</strong> "{b.rejection_reason}"
+                      </div>
+                    )}
                   </div>
 
                   <div className="booking-log-actions">
@@ -408,10 +424,16 @@ export default function LocalBookings() {
                   </label>
                 </div>
 
-                <label>
-                  Group Size (People)
-                  <input type="number" min="1" max="100" value={groupSize} onChange={e => setGroupSize(parseInt(e.target.value) || 1)} required />
-                </label>
+                <div className="double-inputs">
+                  <label>
+                    Group Size (People)
+                    <input type="number" min="1" max="100" value={groupSize} onChange={e => setGroupSize(parseInt(e.target.value) || 1)} required />
+                  </label>
+                  <label>
+                    Offered Fee (BDT)
+                    <input type="number" min="1" value={offeredFee} onChange={e => setOfferedFee(e.target.value)} required placeholder="e.g. 3000..." />
+                  </label>
+                </div>
 
                 <label>
                   Introduce Your Group / Trip Goal
@@ -425,7 +447,7 @@ export default function LocalBookings() {
 
                 <div className="crop-modal-actions" style={{ marginTop: '1rem' }}>
                   <button type="button" className="button button-secondary" onClick={() => setShowBookForm(false)} disabled={bookSubmitting}>
-                    Back to Profile
+                    ← Back
                   </button>
                   <button type="submit" className="button button-primary" disabled={bookSubmitting}>
                     {bookSubmitting ? 'Submitting Request...' : 'Send Booking Request'}
@@ -679,6 +701,43 @@ export default function LocalBookings() {
           gap: 0.5rem;
           border-top: 1px solid #f1f5f9;
           padding-top: 1rem;
+        }
+
+        /* Floating Modal styling */
+        .crop-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow-y: auto;
+          padding: 2rem 1rem;
+          z-index: 10000;
+          animation: fadeIn 0.2s ease-out;
+        }
+        .crop-modal-content {
+          background: white;
+          border-radius: 20px;
+          padding: 2rem;
+          width: 90%;
+          max-width: 480px;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+          animation: slideUp 0.25s ease-out;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
 
         /* Detail Modal card */

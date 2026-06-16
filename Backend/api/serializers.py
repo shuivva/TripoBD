@@ -171,6 +171,8 @@ class WishlistSerializer(serializers.ModelSerializer):
 class TripStorySerializer(serializers.ModelSerializer):
     destination_name = serializers.CharField(source='destination.name', read_only=True)
     destination_slug = serializers.CharField(source='destination.slug', read_only=True)
+    author_name = serializers.CharField(source='user_profile.full_name', read_only=True)
+    author_username = serializers.CharField(source='user_profile.user.username', read_only=True)
 
     class Meta:
         model = TripStory
@@ -186,6 +188,8 @@ class TripStorySerializer(serializers.ModelSerializer):
             'published_at',
             'destination_name',
             'destination_slug',
+            'author_name',
+            'author_username',
         ]
 
 
@@ -370,17 +374,23 @@ class AccommodationReviewSerializer(serializers.ModelSerializer):
         return None
 
 
-class ServiceProviderBookingSerializer(serializers.ModelSerializer):
-    service_provider_name = serializers.CharField(source='service_provider.user.profile.full_name', read_only=True)
-    service_provider_type = serializers.CharField(source='service_provider.service_type', read_only=True)
-    customer_name = serializers.CharField(source='customer.profile.full_name', read_only=True)
+class NestedUserSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='profile.full_name', read_only=True)
 
     class Meta:
-        model = ServiceProviderBooking
+        model = User
+        fields = ['id', 'username', 'email', 'full_name']
+
+
+class NestedServiceProviderSerializer(serializers.ModelSerializer):
+    user = NestedUserSerializer(read_only=True)
+    service_type_label = serializers.CharField(source='get_service_type_display', read_only=True)
+
+    class Meta:
+        model = ServiceProvider
         fields = [
-            'id', 'service_provider', 'service_provider_name', 'service_provider_type',
-            'customer', 'customer_name', 'start_date', 'end_date', 'group_size',
-            'specific_requirements', 'message', 'status', 'created_at'
+            'id', 'service_type', 'service_type_label', 'specialized_destinations',
+            'years_of_experience', 'languages_offered', 'fee_range', 'is_verified', 'user'
         ]
 
 
@@ -390,6 +400,26 @@ class ServiceProviderReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProviderReview
         fields = ['id', 'service_provider', 'booking', 'author', 'author_name', 'rating', 'text_review', 'photo_url', 'created_at']
+
+
+class ServiceProviderBookingSerializer(serializers.ModelSerializer):
+    service_provider = NestedServiceProviderSerializer(read_only=True)
+    service_provider_name = serializers.CharField(source='service_provider.user.profile.full_name', read_only=True)
+    service_provider_type = serializers.CharField(source='service_provider.service_type', read_only=True)
+    customer_name = serializers.CharField(source='customer.profile.full_name', read_only=True)
+    customer_username = serializers.CharField(source='customer.username', read_only=True)
+    customer_email = serializers.CharField(source='customer.email', read_only=True)
+    customer_phone = serializers.CharField(source='customer.profile.phone_number', read_only=True)
+    review = ServiceProviderReviewSerializer(read_only=True)
+
+    class Meta:
+        model = ServiceProviderBooking
+        fields = [
+            'id', 'service_provider', 'service_provider_name', 'service_provider_type',
+            'customer', 'customer_name', 'customer_username', 'customer_email', 'customer_phone',
+            'start_date', 'end_date', 'group_size', 'specific_requirements', 'message',
+            'status', 'created_at', 'agreed_fee', 'internal_notes', 'rejection_reason', 'review'
+        ]
 
 
 class NotificationPreferencesSerializer(serializers.ModelSerializer):
@@ -556,6 +586,7 @@ class ServiceProviderBookingDetailSerializer(serializers.ModelSerializer):
     customer_email = serializers.CharField(source='customer.email', read_only=True)
     customer_phone = serializers.CharField(source='customer.profile.phone_number', read_only=True)
     provider_name = serializers.CharField(source='service_provider.user.profile.full_name', read_only=True)
+    service_provider = NestedServiceProviderSerializer(read_only=True)
     
     class Meta:
         model = ServiceProviderBooking

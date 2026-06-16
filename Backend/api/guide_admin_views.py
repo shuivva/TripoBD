@@ -138,10 +138,36 @@ def guide_booking_actions(request, booking_id):
         booking.status = 'confirmed'
         booking.agreed_fee = request.data.get('agreed_fee', booking.agreed_fee)
         booking.save()
+        
+        # Notify customer
+        from .models import TravelerNotification
+        if hasattr(booking.customer, 'profile'):
+            TravelerNotification.objects.create(
+                user_profile=booking.customer.profile,
+                notification_type='booking',
+                title='Booking Request Approved',
+                message=f"Your booking request with {booking.service_provider.user.profile.full_name} was approved for BDT {booking.agreed_fee}",
+                icon='✅',
+                link='/traveler/bookings',
+            )
+            
     elif action == 'decline':
         booking.status = 'cancelled'
         booking.rejection_reason = request.data.get('reason', '')
         booking.save()
+        
+        # Notify customer
+        from .models import TravelerNotification
+        if hasattr(booking.customer, 'profile'):
+            TravelerNotification.objects.create(
+                user_profile=booking.customer.profile,
+                notification_type='booking',
+                title='Booking Request Declined',
+                message=f"Your booking request with {booking.service_provider.user.profile.full_name} was declined: {booking.rejection_reason}",
+                icon='❌',
+                link='/traveler/bookings',
+            )
+            
     elif action == 'complete':
         booking.status = 'completed'
         booking.save()

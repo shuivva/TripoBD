@@ -15,6 +15,10 @@ export default function GuideBookings() {
   const [agreedFeeEdit, setAgreedFeeEdit] = useState('')
   const [rejectionReason, setRejectionReason] = useState('')
   const [replyText, setReplyText] = useState('')
+  const [showDeclineForm, setShowDeclineForm] = useState(false)
+  const [declineReason, setDeclineReason] = useState('')
+  const [showAcceptForm, setShowAcceptForm] = useState(false)
+  const [agreedFeeInput, setAgreedFeeInput] = useState('')
 
   const loadBookings = async () => {
     if (!userId) {
@@ -134,14 +138,34 @@ export default function GuideBookings() {
                     <td>{b.group_size} travelers</td>
                     <td>৳{b.agreed_fee ? b.agreed_fee.toLocaleString() : '-'}</td>
                     <td>
-                      <button className="button button-secondary compact" onClick={() => {
-                        setSelectedBooking(b)
-                        setInternalNotes(b.internal_notes || '')
-                        setAgreedFeeEdit(b.agreed_fee || '')
-                        setRejectionReason(b.rejection_reason || '')
-                      }}>
-                        View Details & Edit
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                        <button className="button button-secondary compact" onClick={() => {
+                          setSelectedBooking(b)
+                          setInternalNotes(b.internal_notes || '')
+                          setAgreedFeeEdit(b.agreed_fee || '')
+                          setRejectionReason(b.rejection_reason || '')
+                        }}>
+                          Details
+                        </button>
+                        {activeTab === 'requested' && (
+                          <>
+                            <button className="button button-primary compact" onClick={() => {
+                              setSelectedBooking(b)
+                              setAgreedFeeInput(b.agreed_fee || '3000')
+                              setShowAcceptForm(true)
+                            }}>
+                              Approve
+                            </button>
+                            <button className="button button-secondary compact" style={{ borderColor: '#ef4444', color: '#ef4444' }} onClick={() => {
+                              setSelectedBooking(b)
+                              setDeclineReason('I am unavailable on these dates.')
+                              setShowDeclineForm(true)
+                            }}>
+                              Decline
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -152,7 +176,7 @@ export default function GuideBookings() {
       </section>
 
       {/* Details Modal */}
-      {selectedBooking && (
+      {selectedBooking && !showDeclineForm && !showAcceptForm && (
         <div className="crop-modal">
           <div className="crop-modal-content booking-details-modal">
             <h3>Booking Detail: #{selectedBooking.id}</h3>
@@ -197,14 +221,14 @@ export default function GuideBookings() {
               {selectedBooking.status === 'requested' && (
                 <>
                   <button className="button button-secondary" onClick={() => {
-                    const r = prompt('Reason for declining booking:', 'I am unavailable on these dates.')
-                    if (r) handleBookingAction(selectedBooking.id, 'decline', { reason: r })
+                    setDeclineReason('I am unavailable on these dates.')
+                    setShowDeclineForm(true)
                   }}>
                     Decline Request
                   </button>
                   <button className="button button-primary" onClick={() => {
-                    const fee = prompt('Confirm agreed fee:', agreedFeeEdit || '3000')
-                    if (fee) handleBookingAction(selectedBooking.id, 'accept', { agreed_fee: parseFloat(fee) })
+                    setAgreedFeeInput(agreedFeeEdit || '3000')
+                    setShowAcceptForm(true)
                   }}>
                     Accept & Confirm
                   </button>
@@ -232,7 +256,156 @@ export default function GuideBookings() {
         </div>
       )}
 
+      {/* Decline Booking Modal */}
+      {showDeclineForm && selectedBooking && (
+        <div className="crop-modal">
+          <div className="crop-modal-content" style={{ maxWidth: '440px' }}>
+            <h3>Decline Booking Request</h3>
+            <p className="community-muted">Specify the reason for declining booking #{selectedBooking.id}. This will be sent directly to the traveler.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '1.25rem' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>
+                Decline Reason
+                <textarea
+                  value={declineReason}
+                  onChange={e => setDeclineReason(e.target.value)}
+                  placeholder="e.g. I have a scheduling conflict / fully booked..."
+                  rows="3"
+                  style={{
+                    padding: '0.65rem',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    background: 'white',
+                    resize: 'vertical'
+                  }}
+                  required
+                />
+              </label>
+
+              <div className="modal-actions-buttons" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button type="button" className="button button-secondary" onClick={() => setShowDeclineForm(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="button leave-room-danger-btn"
+                  onClick={() => {
+                    handleBookingAction(selectedBooking.id, 'decline', { reason: declineReason })
+                    setShowDeclineForm(false)
+                  }}
+                  disabled={!declineReason.trim()}
+                  style={{
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Decline Booking
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Booking Modal */}
+      {showAcceptForm && selectedBooking && (
+        <div className="crop-modal">
+          <div className="crop-modal-content" style={{ maxWidth: '440px' }}>
+            <h3>Approve Booking Request</h3>
+            <p className="community-muted">Verify or update the agreed fee for booking #{selectedBooking.id} before confirming.</p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginTop: '1.25rem' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.85rem', fontWeight: '700', color: '#475569' }}>
+                Agreed Fee (BDT)
+                <input
+                  type="number"
+                  value={agreedFeeInput}
+                  onChange={e => setAgreedFeeInput(e.target.value)}
+                  placeholder="3000"
+                  style={{
+                    padding: '0.65rem',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    background: 'white'
+                  }}
+                  required
+                />
+              </label>
+
+              <div className="modal-actions-buttons" style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <button type="button" className="button button-secondary" onClick={() => setShowAcceptForm(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="button button-primary"
+                  onClick={() => {
+                    handleBookingAction(selectedBooking.id, 'accept', { agreed_fee: parseFloat(agreedFeeInput) || 0 })
+                    setShowAcceptForm(false)
+                  }}
+                  disabled={!agreedFeeInput || parseFloat(agreedFeeInput) <= 0}
+                  style={{
+                    border: 'none',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Confirm & Approve
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
+        /* Floating Modal styling */
+        .crop-modal {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow-y: auto;
+          padding: 2rem 1rem;
+          z-index: 10000;
+          animation: fadeIn 0.2s ease-out;
+        }
+        .crop-modal-content {
+          background: white;
+          border-radius: 20px;
+          padding: 2rem;
+          width: 90%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 20px 50px rgba(15, 23, 42, 0.15);
+          animation: slideUp 0.25s ease-out;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
         .guide-bookings {
           max-width: 1200px;
           margin: 0 auto;

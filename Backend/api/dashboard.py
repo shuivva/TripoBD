@@ -79,7 +79,7 @@ def _upcoming_trip(profile):
 
     room = membership.room
     dest = room.destination
-    image = dest.hero if dest else ''
+    image = room.cover_photo if room.cover_photo else (dest.hero if dest else '')
     start = timezone.localtime(room.start_datetime) if timezone.is_aware(room.start_datetime) else room.start_datetime
     end = timezone.localtime(room.end_datetime) if timezone.is_aware(room.end_datetime) else room.end_datetime
     return {
@@ -103,7 +103,7 @@ def _active_tour_rooms(profile, limit=5):
     for m in memberships:
         room = m.room
         member_count = room.memberships.count()
-        image = room.destination.hero if room.destination else ''
+        image = room.cover_photo if room.cover_photo else (room.destination.hero if room.destination else '')
         rooms.append(
             {
                 'id': room.id,
@@ -168,9 +168,8 @@ def _trending_destinations(limit=3):
 def _trip_stories_feed(profile, limit=3):
     stories = (
         TripStory.objects.filter(status='published')
-        .exclude(user_profile=profile)
         .select_related('user_profile', 'destination')
-        .order_by('-likes_count', '-published_at')[:limit]
+        .order_by('-published_at', '-likes_count')[:limit]
     )
     items = []
     for story in stories:

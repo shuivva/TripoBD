@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.db.models import Q
+from django.db.models import Q, F
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
 from django.contrib.auth import logout
@@ -1064,10 +1064,10 @@ def tourroom_expense_create(request, room_id):
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    payer_id = request.data.get('payer')
+    payer_id = request.data.get('payer') or request.data.get('payer_id')
     amount = request.data.get('amount')
     desc = request.data.get('description')
-    participants = request.data.get('participants', [])  # list of user ids
+    participants = request.data.get('participants') or request.data.get('participant_ids') or []
 
     if not payer_id or not amount or not desc:
         return Response({'error': 'Payer, amount, and description are required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1078,6 +1078,7 @@ def tourroom_expense_create(request, room_id):
         payer=payer,
         amount=amount,
         description=desc,
+        date=timezone.localdate(),
     )
 
     if not participants:
@@ -1128,6 +1129,8 @@ def tourroom_poll_create(request, room_id):
         return Response({'error': 'Creator, question, and at least 2 options are required'}, status=status.HTTP_400_BAD_REQUEST)
 
     creator = User.objects.filter(id=creator_id).first()
+    if not creator:
+        return Response({'error': 'Creator user not found'}, status=status.HTTP_400_BAD_REQUEST)
     poll = TourRoomPoll.objects.create(
         room=room,
         creator=creator,
@@ -1231,6 +1234,8 @@ def tourroom_chat_messages(request, room_id):
             return Response({'error': 'Sender and either message or attachment are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         sender = User.objects.filter(id=sender_id).first()
+        if not sender:
+            return Response({'error': 'Sender user not found'}, status=status.HTTP_400_BAD_REQUEST)
         msg = TourRoomChatMessage.objects.create(
             room=room,
             sender=sender,
@@ -1239,7 +1244,7 @@ def tourroom_chat_messages(request, room_id):
         )
 
         # Notify other members by incrementing unread counts
-        room.memberships.exclude(user=sender).update(unread_count=models.F('unread_count') + 1)
+        room.memberships.exclude(user=sender).update(unread_count=F('unread_count') + 1)
 
         return Response(TourRoomChatMessageSerializer(msg, context={'request': request}).data, status=status.HTTP_201_CREATED)
 
@@ -1323,34 +1328,36 @@ def tourroom_settings_update(request, room_id):
         return Response({'error': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
 
     action = request.data.get('action')  # 'update', 'transfer_ownership', 'archive', 'leave', 'delete'
+    if not action:
+        if request.data.get('leave') or 'leave' in request.data:
+            action = 'leave'
+        else:
+            action = 'update'
 
     if action == 'delete':
-        if room.owner_id != int(user_id):
+        if room.owner_id is not None and room.owner_id != int(user_id):
             return Response({'error': 'Only owner can delete the room'}, status=status.HTTP_403_FORBIDDEN)
         room.delete()
         return Response({'message': 'Tour Room deleted successfully'})
 
     elif action == 'leave':
-        if room.owner_id == int(user_id):
+        if room.owner_id == int(user_id) and room.memberships.count() > 1:
             return Response({'error': 'Owner cannot leave before transferring ownership'}, status=status.HTTP_400_BAD_REQUEST)
         membership.delete()
         return Response({'message': 'You left the room'})
 
     elif action == 'archive':
-        if not membership.is_admin:
-            return Response({'error': 'Only admin can archive'}, status=status.HTTP_403_FORBIDDEN)
         room.is_archived = True
         room.save(update_fields=['is_archived'])
         return Response({'message': 'Room archived'})
 
     elif action == 'transfer_ownership':
-        if room.owner_id != int(user_id):
+        if room.owner_id is not None and room.owner_id != int(user_id):
             return Response({'error': 'Only owner can transfer ownership'}, status=status.HTTP_403_FORBIDDEN)
         target_username = request.data.get('target_username')
         target_user = User.objects.filter(username=target_username).first()
         if not target_user:
             return Response({'error': 'Target user not found'}, status=status.HTTP_404_NOT_FOUND)
-        # Verify target is member
         if not TourRoomMembership.objects.filter(room=room, user=target_user).exists():
             return Response({'error': 'Target user is not a member'}, status=status.HTTP_400_BAD_REQUEST)
         room.owner = target_user
@@ -1358,13 +1365,13 @@ def tourroom_settings_update(request, room_id):
         return Response({'message': f"Ownership transferred to @{target_username}"})
 
     elif action == 'update':
-        if not membership.is_admin:
-            return Response({'error': 'Only admin can edit settings'}, status=status.HTTP_403_FORBIDDEN)
         room.name = request.data.get('name', room.name)
         room.start_datetime = request.data.get('start_date', room.start_datetime)
         room.end_datetime = request.data.get('end_date', room.end_datetime)
         room.max_members = request.data.get('max_members', room.max_members)
         room.is_public = request.data.get('is_public', room.is_public)
+        room.is_archived = request.data.get('is_archived', room.is_archived)
+        room.cover_photo = request.data.get('cover_photo', room.cover_photo)
         room.save()
         return Response(TourRoomSerializer(room).data)
 
@@ -1374,8 +1381,11 @@ def tourroom_settings_update(request, room_id):
 # 3.6 Tour Guide & Local Bookings views
 @api_view(['GET'])
 def service_provider_list(request):
-    service_type = request.query_params.get('service_type', 'tour_guide')
-    queryset = ServiceProvider.objects.filter(service_type=service_type, is_verified=True)
+    service_type = request.query_params.get('service_type')
+    queryset = ServiceProvider.objects.filter(is_verified=True)
+
+    if service_type and service_type != 'all':
+        queryset = queryset.filter(service_type=service_type)
 
     destination = request.query_params.get('destination')
     language = request.query_params.get('language')
@@ -1407,14 +1417,21 @@ def service_provider_list(request):
 
         results.append({
             'id': sp.id,
-            'user_id': sp.user.id,
-            'name': profile.full_name,
-            'speciality': sp.get_service_type_display(),
-            'destinations': sp.specialized_destinations,
-            'languages': sp.languages_offered,
+            'user': {
+                'id': sp.user.id,
+                'username': sp.user.username,
+                'email': sp.user.email,
+                'full_name': profile.full_name,
+            },
+            'service_type': sp.service_type,
+            'service_type_label': sp.get_service_type_display(),
+            'specialized_destinations': sp.specialized_destinations,
+            'languages_offered': sp.languages_offered,
+            'years_of_experience': sp.years_of_experience,
+            'fee_range': sp.fee_range,
+            'is_verified': sp.is_verified,
             'rating': round(avg_rating, 1),
             'reviews_count': reviews.count(),
-            'price_day': sp.fee_range,
             'photo': photo,
         })
     return Response(results)
@@ -1449,17 +1466,25 @@ def service_provider_detail(request, sp_id):
 
     return Response({
         'id': sp.id,
-        'name': profile.full_name if profile else sp.user.username,
-        'photo': photo,
-        'speciality': sp.get_service_type_display(),
-        'destinations': sp.specialized_destinations,
-        'languages': sp.languages_offered,
+        'user': {
+            'id': sp.user.id,
+            'username': sp.user.username,
+            'email': sp.user.email,
+            'full_name': profile.full_name if profile else sp.user.username,
+        },
+        'service_type': sp.service_type,
+        'service_type_label': sp.get_service_type_display(),
+        'specialized_destinations': sp.specialized_destinations,
+        'languages_offered': sp.languages_offered,
+        'years_of_experience': sp.years_of_experience,
+        'fee_range': sp.fee_range,
+        'is_verified': sp.is_verified,
         'rating': round(avg_rating, 1),
         'reviews_count': reviews.count(),
-        'price_day': sp.fee_range,
-        'bio': f"Verified {sp.get_service_type_display()} with {sp.years_of_experience} years of experience in specialized areas. Offers services in {sp.languages_offered}.",
+        'bio': sp.bio or f"Verified {sp.get_service_type_display()} with {sp.years_of_experience} years of experience in specialized areas. Offers services in {sp.languages_offered}.",
         'portfolio_photos': sp.portfolio_photos or [],
         'reviews': reviews_data,
+        'photo': photo,
     })
 
 
@@ -1469,12 +1494,14 @@ def service_provider_book(request, sp_id):
     if not sp:
         return Response({'error': 'Service provider not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    user_id = request.data.get('user_id')
+    user_id = request.data.get('user_id') or request.data.get('customer_id')
     start_date = request.data.get('start_date')
     end_date = request.data.get('end_date')
     group_size = request.data.get('group_size', 1)
     reqs = request.data.get('specific_requirements', '')
     msg = request.data.get('message', '')
+
+    agreed_fee = request.data.get('agreed_fee', 0)
 
     if not user_id or not start_date or not end_date:
         return Response({'error': 'User, start date, and end date are required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1489,6 +1516,7 @@ def service_provider_book(request, sp_id):
         specific_requirements=reqs,
         message=msg,
         status='requested',
+        agreed_fee=agreed_fee,
     )
     # Notify provider
     if hasattr(sp.user, 'profile'):
@@ -1505,8 +1533,21 @@ def service_provider_book(request, sp_id):
 
 @api_view(['GET'])
 def my_bookings_list(request, user_id):
-    # Upcoming & past bookings
-    bookings = ServiceProviderBooking.objects.filter(customer_id=user_id).select_related('service_provider', 'service_provider__user', 'service_provider__user__profile')
+    # Upcoming & past bookings.
+    # Checks if requested user_id is a service provider, returning provider-centric bookings list if true.
+    user = User.objects.filter(id=user_id).first()
+    if user and hasattr(user, 'service_provider'):
+        bookings = ServiceProviderBooking.objects.filter(service_provider=user.service_provider)
+    else:
+        bookings = ServiceProviderBooking.objects.filter(customer_id=user_id)
+        
+    bookings = bookings.select_related(
+        'service_provider',
+        'service_provider__user',
+        'service_provider__user__profile',
+        'customer',
+        'customer__profile'
+    )
     return Response(ServiceProviderBookingSerializer(bookings, many=True).data)
 
 
@@ -1702,6 +1743,12 @@ def trip_story_detail(request, story_id):
         return Response({'message': 'Story deleted'})
 
     return Response(TripStorySerializer(story, context={'request': request}).data)
+
+
+@api_view(['GET'])
+def trip_stories_list(request):
+    stories = TripStory.objects.filter(status='published').select_related('user_profile', 'destination').order_by('-published_at')
+    return Response(TripStorySerializer(stories, many=True, context={'request': request}).data)
 
 
 @api_view(['GET'])

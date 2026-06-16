@@ -102,6 +102,7 @@ urlpatterns = [
     path('traveler/accommodations/<int:accom_id>/review/', accommodation_review_create, name='accommodation-review-create'),
     path('traveler/<int:user_id>/stories/create-update/', trip_story_create_update, name='trip-story-create-update'),
     path('traveler/stories/<int:story_id>/', trip_story_detail, name='trip-story-detail'),
+    path('traveler/stories/', trip_stories_list, name='trip-stories-list'),
     path('traveler/<int:user_id>/reviews/', my_reviews_list, name='my-reviews-list'),
     path('traveler/reviews/<str:review_type>/<int:review_id>/', review_delete, name='review-delete'),
     path('traveler/leaderboard/', traveler_leaderboard, name='traveler-leaderboard'),

@@ -305,7 +305,7 @@ export default function TravelerDashboard() {
           <section className="dashboard-section">
             <div className="section-header">
               <h3>Trip Stories</h3>
-              <Link to="/traveler/community" className="view-all">View All</Link>
+              <Link to="/traveler/stories" className="view-all">View All</Link>
             </div>
             {trip_stories.length === 0 ? (
               <p className="empty-hint">No trip stories from the community yet.</p>

@@ -41,6 +41,7 @@ export default function TravelerRoom() {
   const [roomDetail, setRoomDetail] = useState(null)
   const [roomLoading, setRoomLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('itinerary') // itinerary, expenses, polls, checklist, chat, map, bookings, settings
+  const [editCoverPhoto, setEditCoverPhoto] = useState('')
 
   // Form states
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -122,12 +123,31 @@ export default function TravelerRoom() {
     setErrorMsg('')
     try {
       const details = await getTourRoomDetail(roomId, userId)
-      setRoomDetail(details)
+      
+      const mappedMembers = (details.members || []).map(m => ({ ...m, id: m.user_id }))
+      
+      // Map backend structure (nested under 'info' and mismatched keys) to what the JSX code expects
+      const mappedDetails = {
+        ...details.info,
+        members: mappedMembers,
+        user_is_admin: details.user_is_admin,
+        user_is_owner: details.user_is_owner,
+        activities: details.activities,
+        expenses: details.expenses,
+        polls: details.polls,
+        checklist_items: details.checklist,
+        map_pins: details.pins,
+        booking_notes: details.notes,
+      }
+      
+      setRoomDetail(mappedDetails)
+      setEditCoverPhoto(mappedDetails.cover_photo || '')
+      
       // default payer to traveler user id
       setNewExpensePayer(userId)
       // Default participants to all room members
-      if (details.members) {
-        setNewExpenseParticipants(details.members.map(m => m.id))
+      if (mappedMembers) {
+        setNewExpenseParticipants(mappedMembers.map(m => m.id))
       }
     } catch (err) {
       setErrorMsg('Failed to load group tour room planner details.')
@@ -160,7 +180,7 @@ export default function TravelerRoom() {
     if (activeTab === 'chat' && queryRoomId) {
       loadChatMessages(queryRoomId)
       // setup chat refresh timer
-      const interval = setInterval(() => loadChatMessages(queryRoomId), 6000)
+      const interval = setInterval(() => loadChatMessages(queryRoomId), 3000)
       return () => clearInterval(interval)
     }
   }, [activeTab, queryRoomId])
@@ -315,6 +335,7 @@ export default function TravelerRoom() {
     setPollSubmitting(true)
     try {
       const payload = {
+        creator: parseInt(userId),
         question: newPollQuestion,
         options: validOptions,
         is_multichoice: false,
@@ -363,7 +384,7 @@ export default function TravelerRoom() {
     try {
       const payload = {
         title: newChecklistTitle,
-        assigned_to_id: newChecklistAssignee ? parseInt(newChecklistAssignee) : null,
+        assigned_to: newChecklistAssignee ? parseInt(newChecklistAssignee) : null,
       }
       await createTourRoomChecklistItem(queryRoomId, payload)
       setNewChecklistTitle('')
@@ -398,14 +419,30 @@ export default function TravelerRoom() {
   const handleSendChatMessage = async (e) => {
     e.preventDefault()
     if ((!chatInput.trim() && !chatAttachment.trim()) || !queryRoomId) return
+    const msgText = chatInput
+    const attachUrl = chatAttachment
     setChatSending(true)
+    setChatInput('')
+    setChatAttachment('')
+    // Optimistic update: immediately show message in chat
+    const optimisticMsg = {
+      id: `temp-${Date.now()}`,
+      sender: parseInt(userId),
+      sender_username: localStorage.getItem('username') || 'You',
+      message: msgText,
+      attachment_url: attachUrl,
+      created_at: new Date().toISOString(),
+    }
+    setChatMessages(prev => [...prev, optimisticMsg])
     try {
-      await sendTourRoomChatMessage(queryRoomId, userId, chatInput, chatAttachment)
-      setChatInput('')
-      setChatAttachment('')
+      await sendTourRoomChatMessage(queryRoomId, userId, msgText, attachUrl)
       await loadChatMessages(queryRoomId)
     } catch {
       setErrorMsg('Failed to send group message.')
+      // Revert optimistic update on failure
+      setChatMessages(prev => prev.filter(m => m.id !== optimisticMsg.id))
+      setChatInput(msgText)
+      setChatAttachment(attachUrl)
     } finally {
       setChatSending(false)
     }
@@ -422,7 +459,7 @@ export default function TravelerRoom() {
         description: newPinDesc,
         latitude: parseFloat(newPinLat),
         longitude: parseFloat(newPinLng),
-        added_by_id: parseInt(userId),
+        user_id: parseInt(userId),
       }
       await createTourRoomMapPin(queryRoomId, payload)
       setNewPinLabel('')
@@ -455,7 +492,7 @@ export default function TravelerRoom() {
       const payload = {
         title: newBookingTitle,
         confirmation_text: newBookingText,
-        added_by_id: parseInt(userId),
+        user_id: parseInt(userId),
       }
       await createTourRoomBookingNote(queryRoomId, payload)
       setNewBookingTitle('')
@@ -508,9 +545,8 @@ export default function TravelerRoom() {
     )
   }
 
-  // Render Single Room Details Dashboard View
   if (roomDetail) {
-    const isOwner = roomDetail.owner?.id === parseInt(userId)
+    const isOwner = roomDetail.user_is_owner
     const formattedPins = (roomDetail.map_pins || []).map(p => ({
       label: p.label,
       description: p.description || '',
@@ -933,9 +969,9 @@ export default function TravelerRoom() {
                   </div>
                 ) : (
                   chatMessages.map(msg => (
-                    <div key={msg.id} className={`chat-bubble-item ${msg.sender?.id === parseInt(userId) ? 'self' : 'other'}`}>
+                    <div key={msg.id} className={`chat-bubble-item ${msg.sender === parseInt(userId) ? 'self' : 'other'}`}>
                       <div className="chat-msg-header">
-                        <strong className="sender-name">{msg.sender?.username}</strong>
+                        <strong className="sender-name">{msg.sender_username || msg.sender_name || 'Unknown'}</strong>
                         <span className="msg-time">{msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}</span>
                       </div>
                       <div className="chat-msg-body">
@@ -1102,11 +1138,34 @@ export default function TravelerRoom() {
                   </form>
                 </div>
 
-                {isOwner && (
-                  <div className="settings-section-card">
-                    <h3>⚙️ Room Admin Actions</h3>
-                    <p className="settings-subtext">As owner of this Tour Room, you can change visibility or archive the trip details.</p>
-                    <div className="admin-actions-rows">
+                <>
+                    <div className="settings-section-card">
+                      <h3>🖼️ Change Room Banner Image</h3>
+                      <p className="settings-subtext">Update the hero cover photo web address for this Tour Room.</p>
+                      <form onSubmit={(e) => {
+                        e.preventDefault()
+                        handleUpdateRoomSettings({ cover_photo: editCoverPhoto })
+                      }} className="invite-form">
+                        <label>
+                          Banner Image URL
+                          <input
+                            type="text"
+                            value={editCoverPhoto}
+                            onChange={e => setEditCoverPhoto(e.target.value)}
+                            placeholder="Paste banner cover image web address..."
+                            required
+                          />
+                        </label>
+                        <button type="submit" className="button button-primary">
+                          Update Cover Image
+                        </button>
+                      </form>
+                    </div>
+
+                    <div className="settings-section-card">
+                      <h3>⚙️ Room Admin Actions</h3>
+                      <p className="settings-subtext">Change visibility, archive, or permanently delete this Tour Room.</p>
+                      <div className="admin-actions-rows">
                       <div className="admin-toggle-row">
                         <div>
                           <strong>Archive Tour Room</strong>
@@ -1132,9 +1191,30 @@ export default function TravelerRoom() {
                           {roomDetail.is_public ? 'Set to Private' : 'Make Public'}
                         </button>
                       </div>
+
+                      <div className="admin-toggle-row">
+                        <div>
+                          <strong>Delete Tour Room</strong>
+                          <p>Permanently deletes this room and all its activities, expenses, chat, and files.</p>
+                        </div>
+                        <button
+                          className="button leave-room-danger-btn"
+                          onClick={async () => {
+                            if (!confirm('Are you absolutely sure you want to permanently delete this Tour Room? This cannot be undone.')) return
+                            try {
+                              await updateTourRoomSettings(queryRoomId, userId, { action: 'delete' })
+                              navigate('/traveler/room')
+                            } catch {
+                              setErrorMsg('Failed to delete Tour Room. Please try again.')
+                            }
+                          }}
+                        >
+                          Delete Room
+                        </button>
+                      </div>
                     </div>
                   </div>
-                )}
+                </>
 
                 <div className="settings-section-card">
                   <h3>🚪 Leave Tour Room</h3>
@@ -1144,7 +1224,7 @@ export default function TravelerRoom() {
                     onClick={async () => {
                       if (!confirm('Leave this Tour Room? This will remove your access.')) return
                       try {
-                        await updateRoomSettings(queryRoomId, userId, { leave: true })
+                        await updateTourRoomSettings(queryRoomId, userId, { leave: true })
                         navigate('/traveler/room')
                       } catch {
                         setErrorMsg('Failed to leave room. Please try again.')

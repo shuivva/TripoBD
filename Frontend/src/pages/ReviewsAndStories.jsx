@@ -104,7 +104,7 @@ export default function ReviewsAndStories() {
       const res = await fetch(`http://localhost:8000/api/traveler/profile/${userId}/`)
       if (res.ok) {
         const data = await res.json()
-        setMyStoriesList(data.stories || [])
+        setMyStoriesList(data.trip_stories || [])
       }
     } catch {
       // ignore
@@ -178,7 +178,7 @@ export default function ReviewsAndStories() {
     setStoryTitle(story.title)
     setStoryDestSlug(story.destination?.slug || '')
     setStoryContent(story.content)
-    setStoryCover(story.cover_photo || '')
+    setStoryCover(story.cover_photo || (story.photos && story.photos[0]) || '')
     setStoryStatus(story.status)
     // scroll form to view
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -375,7 +375,7 @@ export default function ReviewsAndStories() {
                 <div className="stories-grid-list">
                   {myStoriesList.map(story => (
                     <div key={story.id} className="story-profile-card">
-                      <div className="story-banner" style={{ backgroundImage: `url(${story.cover_photo || 'https://images.pexels.com/photos/3278215/pexels-photo-3278215.jpeg?auto=compress&cs=tinysrgb&w=800'})` }} />
+                      <div className="story-banner" style={{ backgroundImage: `url(${story.cover_photo || (story.photos && story.photos[0]) || 'https://images.pexels.com/photos/3278215/pexels-photo-3278215.jpeg?auto=compress&cs=tinysrgb&w=800'})` }} />
                       <div className="story-details">
                         <span className="story-status-tag">{story.status}</span>
                         <h4>{story.title}</h4>
