@@ -70,32 +70,6 @@ export default function TravelerNavigation() {
       </div>
 
       <style>{`
-        .traveler-navbar {
-          background: #0f172a !important;
-          border-bottom: 1px solid #1e293b;
-        }
-        .traveler-navbar .brand-link {
-          color: white !important;
-          font-weight: 900;
-          font-size: 1.4rem;
-        }
-        .traveler-navbar .nav-link {
-          color: #94a3b8 !important;
-          font-size: 0.88rem;
-          font-weight: 700;
-          transition: color 0.15s;
-          display: flex;
-          align-items: center;
-          gap: 0.35rem;
-        }
-        .traveler-navbar .nav-link:hover {
-          color: #f1f5f9 !important;
-        }
-        .traveler-navbar .nav-active {
-          color: #38bdf8 !important;
-          border-bottom: 2.5px solid #38bdf8;
-          padding-bottom: 0.2rem;
-        }
         .notif-nav-link {
           position: relative;
         }

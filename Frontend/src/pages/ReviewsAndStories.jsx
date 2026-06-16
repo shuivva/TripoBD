@@ -622,6 +622,45 @@ export default function ReviewsAndStories() {
           max-width: 800px;
         }
 
+        /* Tabs Styling */
+        .bookings-tabs-bar {
+          display: flex;
+          gap: 1rem;
+          border-bottom: 2px solid #e2e8f0;
+          padding-bottom: 0.75rem;
+          margin-bottom: 1.5rem;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .tab-nav-btn {
+          background: #f8fafc;
+          border: 1.5px solid #e2e8f0;
+          padding: 0.8rem 1.5rem;
+          font-size: 0.95rem;
+          font-weight: 750;
+          color: #475569;
+          cursor: pointer;
+          border-radius: 12px;
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          display: inline-flex;
+          align-items: center;
+          gap: 0.5rem;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+        }
+        .tab-nav-btn:hover {
+          background: #f1f5f9;
+          color: #0f172a;
+          border-color: #cbd5e1;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+        .tab-nav-btn.active {
+          background: linear-gradient(135deg, #e0f2fe, #dbeafe);
+          color: #0369a1;
+          border-color: #7dd3fc;
+          box-shadow: 0 4px 12px rgba(3, 105, 161, 0.12);
+        }
+
         /* composer form */
         .story-composer-form, .detailed-review-form {
           background: #f8fafc;
