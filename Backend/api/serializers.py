@@ -572,7 +572,7 @@ class GuideReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = GuideReview
         fields = ['id', 'guide', 'user', 'username', 'full_name', 'rating', 'review_text', 'photo', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'user']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -624,7 +624,7 @@ class BoatCharterReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = BoatCharterReview
         fields = ['id', 'charter', 'user', 'username', 'full_name', 'rating', 'review_text', 'photo', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'user']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -674,7 +674,7 @@ class VehicleRentalReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = VehicleRentalReview
         fields = ['id', 'rental', 'user', 'username', 'full_name', 'rating', 'review_text', 'photo', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'user']
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
@@ -692,4 +692,4 @@ class VehicleRentalBookingSerializer(serializers.ModelSerializer):
         model = VehicleRentalBooking
         fields = ['id', 'rental', 'rental_name', 'user', 'user_name', 'start_date', 'end_date',
                   'group_size', 'requirements', 'message', 'status', 'total_price', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user']

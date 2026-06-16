@@ -554,6 +554,7 @@ def traveler_profile_photo_update(request, user_id):
 # Tour Room Views
 
 @api_view(['GET', 'POST'])
+@csrf_exempt
 def tour_room_list(request):
     if request.method == 'GET':
         rooms = TourRoom.objects.filter(status='active')

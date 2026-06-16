@@ -747,7 +747,7 @@ class GuideAvailability(models.Model):
 
 class GuideReview(models.Model):
     guide = models.ForeignKey(TourGuide, on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guide_reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guide_reviews', null=True, blank=True)
     rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
     review_text = models.TextField()
     photo = models.BinaryField(blank=True, null=True)
@@ -756,7 +756,6 @@ class GuideReview(models.Model):
     class Meta:
         db_table = 'guide_reviews'
         ordering = ['-created_at']
-        unique_together = ['guide', 'user']
 
     def __str__(self):
         return f'{self.user.username} - {self.guide.user.username} - {self.rating} stars'
@@ -771,7 +770,7 @@ class GuideBooking(models.Model):
     ]
 
     guide = models.ForeignKey(TourGuide, on_delete=models.CASCADE, related_name='bookings')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guide_bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='guide_bookings', null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField()
     group_size = models.PositiveIntegerField(default=1)
@@ -824,7 +823,7 @@ class BoatCharter(models.Model):
 
 class BoatCharterReview(models.Model):
     charter = models.ForeignKey(BoatCharter, on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='boat_charter_reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='boat_charter_reviews', null=True, blank=True)
     rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
     review_text = models.TextField()
     photo = models.BinaryField(blank=True, null=True)
@@ -833,7 +832,6 @@ class BoatCharterReview(models.Model):
     class Meta:
         db_table = 'boat_charter_reviews'
         ordering = ['-created_at']
-        unique_together = ['charter', 'user']
 
     def __str__(self):
         return f'{self.user.username} - {self.charter.name} - {self.rating} stars'
@@ -848,7 +846,7 @@ class BoatCharterBooking(models.Model):
     ]
 
     charter = models.ForeignKey(BoatCharter, on_delete=models.CASCADE, related_name='bookings')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='boat_charter_bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='boat_charter_bookings', null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField()
     group_size = models.PositiveIntegerField(default=1)
@@ -900,7 +898,7 @@ class VehicleRental(models.Model):
 
 class VehicleRentalReview(models.Model):
     rental = models.ForeignKey(VehicleRental, on_delete=models.CASCADE, related_name='reviews')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicle_rental_reviews')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicle_rental_reviews', null=True, blank=True)
     rating = models.PositiveIntegerField(choices=[(i, str(i)) for i in range(1, 6)])
     review_text = models.TextField()
     photo = models.BinaryField(blank=True, null=True)
@@ -909,7 +907,6 @@ class VehicleRentalReview(models.Model):
     class Meta:
         db_table = 'vehicle_rental_reviews'
         ordering = ['-created_at']
-        unique_together = ['rental', 'user']
 
     def __str__(self):
         return f'{self.user.username} - {self.rental.name} - {self.rating} stars'
@@ -924,7 +921,7 @@ class VehicleRentalBooking(models.Model):
     ]
 
     rental = models.ForeignKey(VehicleRental, on_delete=models.CASCADE, related_name='bookings')
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicle_rental_bookings')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='vehicle_rental_bookings', null=True, blank=True)
     start_date = models.DateField()
     end_date = models.DateField()
     group_size = models.PositiveIntegerField(default=1)
