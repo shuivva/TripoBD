@@ -175,8 +175,15 @@ export default function MapView({ pins }) {
 
       // Fit map to all markers if custom pins passed
       if (pins && pins.length > 0 && markersRef.current.length > 0) {
-        const group = L.featureGroup(markersRef.current)
-        map.fitBounds(group.getBounds().pad(0.2))
+        try {
+          const group = L.featureGroup(markersRef.current)
+          const bounds = group.getBounds()
+          if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.2))
+          }
+        } catch (e) {
+          console.warn('Leaflet fitBounds error in Map.jsx:', e)
+        }
       }
     }
 

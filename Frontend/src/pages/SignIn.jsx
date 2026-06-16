@@ -27,7 +27,13 @@ export default function SignIn() {
           localStorage.setItem('userId', data.user_id)
         }
         // In a real app you'd store a token; for now just redirect
-        navigate('/traveler/dashboard')
+        if (data.is_admin) {
+          navigate('/admin/dashboard')
+        } else if (data.user_type === 'service_provider') {
+          navigate('/guide/dashboard')
+        } else {
+          navigate('/traveler/dashboard')
+        }
       } else {
         setError(data.error || 'Login failed')
       }

@@ -106,20 +106,27 @@ export default function MapView({ pins, path }) {
           const m = L.marker(coord, { icon }).addTo(map)
           markers.current.push(m)
         })
-        map.fitBounds(L.polyline(path).getBounds().pad(0.25))
+        const bounds = L.polyline(path).getBounds()
+        if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.25))
+        }
         return
       }
 
       // Spot pins
       spots.forEach(({ label, description='', coords }) => {
         if (!coords || coords.length < 2) return
+        const lat = parseFloat(coords[0])
+        const lng = parseFloat(coords[1])
+        if (isNaN(lat) || isNaN(lng)) return
+        
         const color = getCatColor(description)
         const icon = L.divIcon({
           className: '',
           html: svgMarker(color),
           iconSize: [32,42], iconAnchor: [16,42], popupAnchor: [0,-44],
         })
-        const m = L.marker(coords, { icon })
+        const m = L.marker([lat, lng], { icon })
           .bindPopup(`
             <div style="font-family:'Segoe UI',sans-serif;min-width:150px;padding:4px 0">
               <div style="font-weight:700;font-size:.9rem;color:#020617;margin-bottom:3px">${label}</div>
@@ -135,7 +142,14 @@ export default function MapView({ pins, path }) {
       })
 
       if (pins && pins.length > 0 && markers.current.length > 0) {
-        map.fitBounds(L.featureGroup(markers.current).getBounds().pad(0.2))
+        try {
+          const bounds = L.featureGroup(markers.current).getBounds()
+          if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.2))
+          }
+        } catch (e) {
+          console.warn('Leaflet fitBounds error:', e)
+        }
       }
     }
 

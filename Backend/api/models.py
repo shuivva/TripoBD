@@ -83,11 +83,18 @@ class ServiceProvider(models.Model):
     submitted_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
     
+    # Extended fields
+    bio = models.TextField(blank=True, default='')
+    speciality_tags = models.TextField(blank=True, default='', help_text='Comma separated tags')
+    availability_calendar = models.JSONField(default=list, blank=True)
+    pricing_rates = models.JSONField(default=dict, blank=True)
+    contact_preferences = models.CharField(max_length=100, blank=True, default='email')
+    
     class Meta:
         db_table = 'service_providers'
     
     def __str__(self):
-        return f'{self.user.full_name} - {self.get_service_type_display()}'
+        return f'{getattr(self.user, "username", "guide")} - {self.get_service_type_display()}'
 
 
 class Destination(models.Model):
@@ -293,6 +300,12 @@ class TourRoom(models.Model):
     start_datetime = models.DateTimeField()
     end_datetime = models.DateTimeField()
     description = models.TextField(blank=True)
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='owned_rooms')
+    cover_photo = models.CharField(max_length=255, blank=True, default='')
+    invite_code = models.CharField(max_length=100, blank=True, default='')
+    is_archived = models.BooleanField(default=False)
+    is_public = models.BooleanField(default=False)
+    max_members = models.PositiveIntegerField(default=10)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -598,3 +611,398 @@ class Route(models.Model):
 
     def __str__(self):
         return f'{self.from_location} → {self.to_location} ({self.mode})'
+
+
+# ==========================================
+# RESTORED MODELS FROM MIGRATION 0008 SCHEMA
+# ==========================================
+
+class AIChatSession(models.Model):
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='ai_chat_sessions')
+    title = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'ai_chat_sessions'
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user_profile.full_name} - {self.title}"
+
+
+class AIChatMessage(models.Model):
+    session = models.ForeignKey(AIChatSession, on_delete=models.CASCADE, related_name='messages')
+    role = models.CharField(max_length=20)
+    content = models.TextField()
+    rating = models.CharField(max_length=10, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'ai_chat_messages'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.role}: {self.content[:30]}"
+
+
+class NotificationPreferences(models.Model):
+    user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='notification_preferences')
+    email_group = models.BooleanField(default=True)
+    sms_group = models.BooleanField(default=False)
+    push_group = models.BooleanField(default=True)
+    email_booking = models.BooleanField(default=True)
+    sms_booking = models.BooleanField(default=True)
+    push_booking = models.BooleanField(default=True)
+    email_review = models.BooleanField(default=True)
+    sms_review = models.BooleanField(default=False)
+    push_review = models.BooleanField(default=True)
+    email_community = models.BooleanField(default=False)
+    sms_community = models.BooleanField(default=False)
+    push_community = models.BooleanField(default=True)
+    email_system = models.BooleanField(default=True)
+    sms_system = models.BooleanField(default=False)
+    push_system = models.BooleanField(default=True)
+
+    class Meta:
+        db_table = 'notification_preferences'
+
+    def __str__(self):
+        return f"Preferences for {self.user_profile.full_name}"
+
+
+class DestinationReview(models.Model):
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='destination_reviews')
+    destination = models.ForeignKey(Destination, on_delete=models.CASCADE, related_name='detailed_reviews')
+    rating_accessibility = models.PositiveIntegerField(default=5)
+    rating_safety = models.PositiveIntegerField(default=5)
+    rating_value = models.PositiveIntegerField(default=5)
+    rating_scenery = models.PositiveIntegerField(default=5)
+    rating_food = models.PositiveIntegerField(default=5)
+    text_review = models.TextField()
+    photos = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'destination_reviews'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user_profile.full_name} -> {self.destination.name}"
+
+
+class AccommodationReview(models.Model):
+    user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='accommodation_reviews')
+    accommodation = models.ForeignKey(Accommodation, on_delete=models.CASCADE, related_name='detailed_reviews')
+    rating_cleanliness = models.PositiveIntegerField(default=5)
+    rating_staff = models.PositiveIntegerField(default=5)
+    rating_accessibility = models.PositiveIntegerField(default=5)
+    rating_safety = models.PositiveIntegerField(default=5)
+    rating_value = models.PositiveIntegerField(default=5)
+    rating_scenery = models.PositiveIntegerField(default=5)
+    rating_food = models.PositiveIntegerField(default=5)
+    text_review = models.TextField()
+    photos = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'accommodation_reviews'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user_profile.full_name} -> {self.accommodation.name}"
+
+
+class ServiceProviderBooking(models.Model):
+    STATUS_CHOICES = [
+        ('requested', 'Requested'),
+        ('confirmed', 'Confirmed'),
+        ('completed', 'Completed'),
+        ('cancelled', 'Cancelled'),
+    ]
+    service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='bookings')
+    customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='service_bookings')
+    start_date = models.DateField()
+    end_date = models.DateField()
+    group_size = models.PositiveIntegerField(default=1)
+    specific_requirements = models.TextField(blank=True, default='')
+    message = models.TextField(blank=True, default='')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='requested')
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    # Extended fields
+    agreed_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    internal_notes = models.TextField(blank=True, default='')
+    rejection_reason = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'service_provider_bookings'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Booking {self.id}: {self.customer.username} with {self.service_provider.user.username}"
+
+
+class ServiceProviderReview(models.Model):
+    service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='reviews')
+    booking = models.OneToOneField(ServiceProviderBooking, on_delete=models.SET_NULL, null=True, blank=True, related_name='review')
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='service_reviews')
+    rating = models.PositiveIntegerField(default=5)
+    text_review = models.TextField()
+    photo_url = models.CharField(max_length=255, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'service_provider_reviews'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Review for {self.service_provider.user.username} by {self.author.username}"
+
+
+class TourRoomActivity(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='activities')
+    day_number = models.PositiveIntegerField()
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default='')
+    start_time = models.TimeField(blank=True, null=True)
+    end_time = models.TimeField(blank=True, null=True)
+    notes = models.TextField(blank=True, default='')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_activities')
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'tour_room_activities'
+        ordering = ['day_number', 'sort_order', 'id']
+
+    def __str__(self):
+        return f"{self.room.name} - Day {self.day_number}: {self.title}"
+
+
+class TourRoomBookingNote(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='booking_notes')
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='added_booking_notes')
+    title = models.CharField(max_length=200)
+    confirmation_text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_booking_notes'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.room.name} - {self.title}"
+
+
+class TourRoomChatMessage(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='chat_messages')
+    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tour_room_chat_messages')
+    message = models.TextField(blank=True, default='')
+    attachment_url = models.CharField(max_length=255, blank=True, default='')
+    is_pinned = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_chat_messages'
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f"{self.sender.username}: {self.message[:30]}"
+
+
+class TourRoomChecklistItem(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='checklist_items')
+    title = models.CharField(max_length=255)
+    is_completed = models.BooleanField(default=False)
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_checklist_items')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_checklist_items'
+        ordering = ['is_completed', '-created_at']
+
+    def __str__(self):
+        return f"{self.room.name} - {self.title}"
+
+
+class TourRoomExpense(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='expenses')
+    payer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='paid_expenses')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    description = models.CharField(max_length=255)
+    date = models.DateField(default=timezone.now)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_expenses'
+        ordering = ['-date', '-created_at']
+
+    def __str__(self):
+        return f"{self.room.name} - {self.description}: {self.amount}"
+
+
+class TourRoomExpenseParticipant(models.Model):
+    expense = models.ForeignKey(TourRoomExpense, on_delete=models.CASCADE, related_name='participants')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expense_shares')
+    share_amount = models.DecimalField(max_digits=12, decimal_places=2)
+    is_paid = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'tour_room_expense_participants'
+        unique_together = ('expense', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} share in {self.expense.description}"
+
+
+class TourRoomMapPin(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='map_pins')
+    added_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='added_map_pins')
+    label = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default='')
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_map_pins'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.room.name} Pin: {self.label}"
+
+
+class TourRoomPoll(models.Model):
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='polls')
+    creator = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_polls')
+    question = models.CharField(max_length=255)
+    is_multichoice = models.BooleanField(default=False)
+    deadline = models.DateTimeField(null=True, blank=True)
+    is_closed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_polls'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.room.name} Poll: {self.question}"
+
+
+class TourRoomPollOption(models.Model):
+    poll = models.ForeignKey(TourRoomPoll, on_delete=models.CASCADE, related_name='options')
+    text = models.CharField(max_length=255)
+
+    class Meta:
+        db_table = 'tour_room_poll_options'
+
+    def __str__(self):
+        return self.text
+
+
+class TourRoomPollVote(models.Model):
+    poll = models.ForeignKey(TourRoomPoll, on_delete=models.CASCADE, related_name='votes')
+    option = models.ForeignKey(TourRoomPollOption, on_delete=models.CASCADE, related_name='votes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='poll_votes')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_poll_votes'
+        unique_together = ('poll', 'option', 'user')
+
+    def __str__(self):
+        return f"{self.user.username} voted {self.option.text}"
+
+
+class TourRoomInvite(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('accepted', 'Accepted'),
+        ('declined', 'Declined'),
+    ]
+    room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='invites')
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='room_invites_sent')
+    invited_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='room_invites_received')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tour_room_invites'
+        unique_together = ('room', 'invited_user')
+
+    def __str__(self):
+        return f"Invite {self.invited_user.username} to {self.room.name}"
+
+
+class PayoutRequest(models.Model):
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('rejected', 'Rejected'),
+    ]
+    METHOD_CHOICES = [
+        ('bkash', 'bKash'),
+        ('bank_transfer', 'Bank Transfer'),
+    ]
+    service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='payout_requests')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    method = models.CharField(max_length=20, choices=METHOD_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    details = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'payout_requests'
+        ordering = ['-created_at']
+
+
+class SupportTicket(models.Model):
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ]
+    PRIORITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='support_tickets')
+    subject = models.CharField(max_length=255)
+    description = models.TextField()
+    category = models.CharField(max_length=100)
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='open')
+    assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tickets')
+    conversation = models.JSONField(default=list, blank=True, help_text='List of chat replies')
+    internal_notes = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'support_tickets'
+        ordering = ['-created_at']
+
+
+class SystemConfig(models.Model):
+    key = models.CharField(max_length=100, unique=True)
+    value = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'system_configs'
+
+
+class AdminAuditLog(models.Model):
+    admin = models.ForeignKey(User, on_delete=models.CASCADE, related_name='audit_logs')
+    action = models.CharField(max_length=255)
+    details = models.TextField()
+    ip_address = models.CharField(max_length=45, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'admin_audit_logs'
+        ordering = ['-created_at']

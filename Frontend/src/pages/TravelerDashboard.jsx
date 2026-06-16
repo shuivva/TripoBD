@@ -6,8 +6,8 @@ const quickActions = [
   { icon: '🧭', label: 'Explore Destinations', color: 'from-blue-500 to-cyan-400', to: '/discover' },
   { icon: '📅', label: 'Plan a Trip', color: 'from-purple-500 to-pink-400', to: '/discover' },
   { icon: '👥', label: 'Join a Group', color: 'from-green-500 to-emerald-400', to: '/traveler/community?tab=browse' },
-  { icon: '🤖', label: 'Chat with AI', color: 'from-orange-500 to-amber-400', to: null },
-  { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-indigo-500 to-violet-400', to: '/discover' },
+  { icon: '🤖', label: 'Chat with AI', color: 'from-orange-500 to-amber-400', to: '/traveler/ai' },
+  { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-indigo-500 to-violet-400', to: '/traveler/bookings' },
 ]
 
 function computeCountdown(targetDate) {
@@ -171,14 +171,6 @@ export default function TravelerDashboard() {
         <div className="quick-actions-grid">
           {quickActions.map((action) => {
             const className = `quick-action-card bg-gradient-to-r ${action.color}`
-            if (action.label === 'Chat with AI') {
-              return (
-                <button key={action.label} type="button" className={className} onClick={openAiChat}>
-                  <span className="action-icon">{action.icon}</span>
-                  <span className="action-label">{action.label}</span>
-                </button>
-              )
-            }
             if (action.to) {
               return (
                 <Link key={action.label} to={action.to} className={className}>
