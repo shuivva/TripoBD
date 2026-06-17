@@ -632,7 +632,29 @@ def _generate_ai_response(prompt):
 অনুগ্রহ করে আপনার গন্তব্য এবং ভ্রমণের দিন উল্লেখ করুন (যেমন: "৩ দিনের জন্য সাজেক ভ্যালি ভ্রমণের একটি বাজেট প্ল্যান দিন")।"""
 
     else:
-        if "bandarban" in prompt_lower:
+        if "bandarban" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Bandarban Itinerary (Budget: ~3,500 BDT)
+
+A quick weekend trip to explore the highlights of Bandarban:
+
+#### **Day 1: Nilgiri and Chimbuk Hill**
+* **08:00 AM:** Arrive in Bandarban town, check into a budget hotel.
+* **09:30 AM:** Hire a shared 'Chander Gari' (Jeep) to Nilgiri.
+* **11:30 AM:** Enjoy the cloud-touching view at Nilgiri.
+* **02:00 PM:** Eat lunch at a local restaurant on Chimbuk Hill (Try local Jhum Rice and Bamboo Chicken).
+* **04:30 PM:** Stop by Shoilo Propat waterfall.
+* **06:00 PM:** Return to town and shop for local tribal handicrafts at the Burmese Market.
+
+#### **Day 2: Golden Temple and Nilachol Sunset**
+* **08:00 AM:** Visit the Buddha Dhatu Jadi (Golden Temple).
+* **10:30 AM:** Explore the local tribal villages and markets.
+* **03:30 PM:** Go to Nilachol for a breathtaking panoramic view of the hills during sunset.
+* **06:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **Bamboo Chicken** (cooked inside bamboo shoots), **Mundee** (tribal noodles), and fresh **Jhum Pineapples**.
+**Weather Tip:** Humidity is high in summer. Bring mosquito repellent, comfortable hiking shoes, and an umbrella/raincoat."""
+
+        elif "bandarban" in prompt_lower:
             return """### 3-Day Bandarban Detailed Itinerary (Budget: ~5,000 BDT)
 
 Here is a budget-friendly itinerary for exploring the lush green hills of Bandarban:
@@ -660,6 +682,332 @@ Here is a budget-friendly itinerary for exploring the lush green hills of Bandar
 
 **Local Food Guide:** Try **Bamboo Chicken** (cooked inside bamboo shoots), **Mundee** (tribal noodles), and fresh **Jhum Pineapples**.
 **Weather Tip:** Humidity is high in summer. Bring mosquito repellent, comfortable hiking shoes, and an umbrella/raincoat."""
+
+        elif "cox" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Cox's Bazar Itinerary (Budget: ~4,000 BDT)
+
+A perfect weekend getaway to the world's longest beach:
+
+#### **Day 1: Beach Exploration and Sunset**
+* **08:00 AM:** Arrive in Cox's Bazar, check into a beachfront hotel.
+* **10:00 AM:** Walk along Laboni Beach and enjoy the morning breeze.
+* **01:00 PM:** Lunch at a local seafood restaurant (try Shutki Bhorta and Loitta Fry).
+* **03:00 PM:** Visit Himchari Waterfall and enjoy the scenic trail.
+* **05:30 PM:** Watch the sunset at Inani Beach with its coral rocks.
+* **08:00 PM:** Dinner at a beachside restaurant with fresh Koral Fish BBQ.
+
+#### **Day 2: Marine Drive and Departure**
+* **07:00 AM:** Early morning beach walk and swimming.
+* **10:00 AM:** Drive along the Marine Drive road to Teknaf.
+* **12:00 PM:** Lunch at a local restaurant in Teknaf.
+* **03:00 PM:** Visit the Burmese Market for souvenirs and dry fish.
+* **05:00 PM:** Return to Cox's Bazar town.
+* **07:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **Shutki Bhorta** (dried fish paste), **Loitta Fry** (deep-fried Bombay duck), and **Koral Fish BBQ**.
+**Weather Tip:** Bring sunscreen, sunglasses, and light cotton clothes. Best time to visit is October to March."""
+
+        elif "cox" in prompt_lower and ("3 day" in prompt_lower or "3-day" in prompt_lower or "three day" in prompt_lower):
+            return """### 3-Day Cox's Bazar Itinerary (Budget: ~6,000 BDT)
+
+A comprehensive beach and island experience:
+
+#### **Day 1: Beach Exploration and Sunset**
+* **08:00 AM:** Arrive in Cox's Bazar, check into a beachfront hotel.
+* **10:00 AM:** Walk along Laboni Beach and enjoy the morning breeze.
+* **01:00 PM:** Lunch at a local seafood restaurant (try Shutki Bhorta and Loitta Fry).
+* **03:00 PM:** Visit Himchari Waterfall and enjoy the scenic trail.
+* **05:30 PM:** Watch the sunset at Inani Beach with its coral rocks.
+* **08:00 PM:** Dinner at a beachside restaurant with fresh Koral Fish BBQ.
+
+#### **Day 2: Saint Martin Island Day Trip**
+* **07:00 AM:** Take a boat to Saint Martin Island (3-hour journey).
+* **10:30 AM:** Arrive at Saint Martin, explore the coral beaches.
+* **01:00 PM:** Lunch with fresh seafood at a local restaurant.
+* **03:00 PM:** Snorkeling and coral reef exploration.
+* **05:00 PM:** Return boat journey to Cox's Bazar.
+* **08:00 PM:** Dinner and rest at hotel.
+
+#### **Day 3: Marine Drive and Departure**
+* **08:00 AM:** Drive along the Marine Drive road to Teknaf.
+* **10:30 AM:** Visit the Naf River and Bangladesh-Myanmar border.
+* **01:00 PM:** Lunch at a local restaurant in Teknaf.
+* **03:00 PM:** Visit the Burmese Market for souvenirs and dry fish.
+* **05:00 PM:** Return to Cox's Bazar town.
+* **07:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **Shutki Bhorta** (dried fish paste), **Loitta Fry** (deep-fried Bombay duck), and **Koral Fish BBQ**.
+**Weather Tip:** Bring sunscreen, sunglasses, and light cotton clothes. Best time to visit is October to March."""
+
+        elif "sajek" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Sajek Valley Itinerary (Budget: ~5,000 BDT)
+
+A quick trip to the Queen of Hills:
+
+#### **Day 1: Entering the Valley of Clouds**
+* **07:00 AM:** Arrive at Khagrachhari town. Hire a Chander Gari to Sajek (approx. 5,000-7,000 BDT return trip, shareable).
+* **10:30 AM:** Join the army escort from Dighinala camp.
+* **01:30 PM:** Reach Sajek Valley, check into a wooden resort on the ridge.
+* **04:30 PM:** Watch the sunset from Konglak Para (the highest peak in Sajek).
+* **08:00 PM:** Dinner at tribal restaurants (bamboo chicken and local tea).
+
+#### **Day 2: Sunrise and Return**
+* **05:30 AM:** Wake up early to catch the ocean of clouds from your resort balcony or the helipad.
+* **08:00 AM:** Breakfast with local tribal food.
+* **10:00 AM:** Begin return journey to Khagrachhari.
+* **01:00 PM:** Visit Alutila Cave on the way back.
+* **04:00 PM:** Arrive at Khagrachhari town.
+
+**Packing List:** Power bank (electricity is limited), personal medicines, lightweight windcheater, trekking sandals."""
+
+        elif "sajek" in prompt_lower and ("3 day" in prompt_lower or "3-day" in prompt_lower or "three day" in prompt_lower):
+            return """### 3-Day Sajek Valley Itinerary (Budget: ~7,000 BDT)
+
+An extended exploration of the Queen of Hills:
+
+#### **Day 1: Entering the Valley of Clouds**
+* **07:00 AM:** Arrive at Khagrachhari town. Hire a Chander Gari to Sajek (approx. 5,000-7,000 BDT return trip, shareable).
+* **10:30 AM:** Join the army escort from Dighinala camp.
+* **01:30 PM:** Reach Sajek Valley, check into a wooden resort on the ridge.
+* **04:30 PM:** Watch the sunset from Konglak Para (the highest peak in Sajek).
+* **08:00 PM:** Dinner at tribal restaurants (bamboo chicken and local tea).
+
+#### **Day 2: Full Day Exploration**
+* **05:30 AM:** Wake up early to catch the ocean of clouds from your resort balcony or the helipad.
+* **08:00 AM:** Breakfast with local tribal food.
+* **10:00 AM:** Trek to nearby tribal villages and experience local culture.
+* **01:00 PM:** Lunch at a tribal homestay.
+* **03:00 PM:** Visit the Ruilui Para viewpoint.
+* **06:00 PM:** Return to resort, enjoy tribal cultural program in the evening.
+
+#### **Day 3: Sunrise and Return**
+* **05:30 AM:** Final sunrise viewing from the helipad.
+* **08:00 AM:** Breakfast and checkout.
+* **10:00 AM:** Begin return journey to Khagrachhari.
+* **01:00 PM:** Visit Alutila Cave and Tareng Hills on the way back.
+* **04:00 PM:** Arrive at Khagrachhari town.
+
+**Packing List:** Power bank (electricity is limited), personal medicines, lightweight windcheater, trekking sandals."""
+
+        elif "saint martin" in prompt_lower or "st. martin" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Saint Martin Island Itinerary (Budget: ~5,000 BDT)
+
+A quick escape to Bangladesh's only coral island:
+
+#### **Day 1: Island Arrival and Beach Exploration**
+* **07:00 AM:** Take the early morning ship/launch from Teknaf to Saint Martin (3-hour journey).
+* **10:30 AM:** Arrive at Saint Martin, check into a beach cottage.
+* **12:00 PM:** Lunch with fresh seafood at a local restaurant.
+* **02:00 PM:** Explore the coral beaches and collect seashells.
+* **04:30 PM:** Watch the sunset at the western beach.
+* **07:00 PM:** Dinner with grilled fish and coconut water.
+
+#### **Day 2: Sunrise and Departure**
+* **05:30 AM:** Wake up early to catch the sunrise from the eastern beach.
+* **07:00 AM:** Morning walk along the coral reef during low tide.
+* **09:00 AM:** Breakfast and checkout.
+* **11:00 AM:** Last-minute shopping for dried fish and souvenirs.
+* **01:00 PM:** Board the return ship to Teknaf.
+* **04:00 PM:** Arrive at Teknaf.
+
+**Local Food Guide:** Try fresh **lobster**, **crab**, and **coconut water**.
+**Weather Tip:** Best time to visit is November to March. Bring sunscreen, hat, and light clothes. Ship schedules depend on weather conditions."""
+
+        elif "saint martin" in prompt_lower or "st. martin" in prompt_lower and ("3 day" in prompt_lower or "3-day" in prompt_lower or "three day" in prompt_lower):
+            return """### 3-Day Saint Martin Island Itinerary (Budget: ~7,000 BDT)
+
+A relaxed island getaway with full exploration:
+
+#### **Day 1: Island Arrival and Beach Exploration**
+* **07:00 AM:** Take the early morning ship/launch from Teknaf to Saint Martin (3-hour journey).
+* **10:30 AM:** Arrive at Saint Martin, check into a beach cottage.
+* **12:00 PM:** Lunch with fresh seafood at a local restaurant.
+* **02:00 PM:** Explore the coral beaches and collect seashells.
+* **04:30 PM:** Watch the sunset at the western beach.
+* **07:00 PM:** Dinner with grilled fish and coconut water.
+
+#### **Day 2: Full Island Exploration**
+* **06:00 AM:** Wake up early to catch the sunrise from the eastern beach.
+* **08:00 AM:** Breakfast with local fruits and coconut water.
+* **10:00 AM:** Walk around the entire island perimeter during low tide.
+* **01:00 PM:** Lunch at a beachside restaurant.
+* **03:00 PM:** Snorkeling around the coral reefs.
+* **05:00 PM:** Visit the local fishing village and experience island life.
+* **07:00 PM:** BBQ dinner on the beach under the stars.
+
+#### **Day 3: Sunrise and Departure**
+* **05:30 AM:** Final sunrise viewing and morning swim.
+* **08:00 AM:** Breakfast and checkout.
+* **10:00 AM:** Last-minute shopping for dried fish and souvenirs.
+* **12:00 PM:** Board the return ship to Teknaf.
+* **03:00 PM:** Arrive at Teknaf.
+
+**Local Food Guide:** Try fresh **lobster**, **crab**, and **coconut water**.
+**Weather Tip:** Best time to visit is November to March. Bring sunscreen, hat, and light clothes. Ship schedules depend on weather conditions."""
+
+        elif "sreemangal" in prompt_lower or "sylhet" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Sreemangal Itinerary (Budget: ~4,000 BDT)
+
+A quick trip to the tea capital of Bangladesh:
+
+#### **Day 1: Tea Gardens and Lawachara Forest**
+* **08:00 AM:** Arrive in Sreemangal, check into a tea garden resort.
+* **10:00 AM:** Visit the famous tea estates and learn about tea processing.
+* **01:00 PM:** Lunch with local Sylheti cuisine (try Shatkora Beef).
+* **03:00 PM:** Explore Lawachara National Forest and spot wildlife.
+* **05:30 PM:** Visit the Seven-Colored Tea at Nilkantha Cabin.
+* **07:00 PM:** Dinner at a local restaurant.
+
+#### **Day 2: Waterfalls and Departure**
+* **07:00 AM:** Early morning visit to Madhabkunda Waterfall.
+* **10:00 AM:** Explore the surrounding hills and tribal villages.
+* **01:00 PM:** Lunch at a local restaurant.
+* **03:00 PM:** Visit the Baikka Beel wetland sanctuary.
+* **05:00 PM:** Return to Sreemangal town.
+* **06:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **Shatkora Beef**, **Seven-Layer Tea**, and **pitha** (traditional rice cakes).
+**Weather Tip:** Best time to visit is October to March. Bring light clothes and comfortable walking shoes."""
+
+        elif "sreemangal" in prompt_lower or "sylhet" in prompt_lower and ("3 day" in prompt_lower or "3-day" in prompt_lower or "three day" in prompt_lower):
+            return """### 3-Day Sreemangal Itinerary (Budget: ~6,000 BDT)
+
+A comprehensive exploration of tea country:
+
+#### **Day 1: Tea Gardens and Lawachara Forest**
+* **08:00 AM:** Arrive in Sreemangal, check into a tea garden resort.
+* **10:00 AM:** Visit the famous tea estates and learn about tea processing.
+* **01:00 PM:** Lunch with local Sylheti cuisine (try Shatkora Beef).
+* **03:00 PM:** Explore Lawachara National Forest and spot wildlife.
+* **05:30 PM:** Visit the Seven-Colored Tea at Nilkantha Cabin.
+* **07:00 PM:** Dinner at a local restaurant.
+
+#### **Day 2: Waterfalls and Tribal Culture**
+* **07:00 AM:** Early morning visit to Madhabkunda Waterfall.
+* **10:00 AM:** Explore the surrounding hills and tribal villages.
+* **01:00 PM:** Lunch at a tribal homestay.
+* **03:00 PM:** Visit Hum Hum Waterfall (requires trekking).
+* **06:00 PM:** Return to resort, enjoy tribal cultural evening.
+
+#### **Day 3: Wetlands and Departure**
+* **08:00 AM:** Visit the Baikka Beel wetland sanctuary for bird watching.
+* **10:30 AM:** Explore the local markets and buy tea as souvenirs.
+* **01:00 PM:** Lunch at a local restaurant.
+* **03:00 PM:** Final tea garden tour and photography.
+* **05:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **Shatkora Beef**, **Seven-Layer Tea**, and **pitha** (traditional rice cakes).
+**Weather Tip:** Best time to visit is October to March. Bring light clothes and comfortable walking shoes."""
+
+        elif "sundarbans" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Sundarbans Itinerary (Budget: ~6,000 BDT)
+
+A quick wildlife adventure in the world's largest mangrove forest:
+
+#### **Day 1: Jungle Safari and Watchtower**
+* **07:00 AM:** Depart from Khulna to Mongla by bus/launch.
+* **10:00 AM:** Arrive at Mongla, board the safari boat.
+* **12:00 PM:** Lunch on the boat while cruising through the mangroves.
+* **02:30 PM:** Visit Sajnekhali Watchtower for wildlife spotting.
+* **05:00 PM:** Sunset cruise through the creeks.
+* **07:00 PM:** Dinner and overnight on the boat or eco-cottage.
+
+#### **Day 2: Wildlife Spotting and Return**
+* **06:00 AM:** Early morning boat safari for tiger and deer spotting.
+* **09:00 AM:** Visit Dobanki Jungle Camp and canopy walk.
+* **12:00 PM:** Lunch and begin return journey.
+* **03:00 PM:** Visit Hiron Point for final wildlife viewing.
+* **05:00 PM:** Return to Mongla.
+* **07:00 PM:** Depart for Khulna.
+
+**Local Food Guide:** Try fresh river fish, prawns, and local tribal cuisine.
+**Weather Tip:** Best time to visit is November to February. Bring mosquito repellent, binoculars, and comfortable clothes. Book licensed guide in advance."""
+
+        elif "sundarbans" in prompt_lower and ("3 day" in prompt_lower or "3-day" in prompt_lower or "three day" in prompt_lower):
+            return """### 3-Day Sundarbans Itinerary (Budget: ~8,000 BDT)
+
+A comprehensive mangrove forest exploration:
+
+#### **Day 1: Jungle Safari and Watchtower**
+* **07:00 AM:** Depart from Khulna to Mongla by bus/launch.
+* **10:00 AM:** Arrive at Mongla, board the safari boat.
+* **12:00 PM:** Lunch on the boat while cruising through the mangroves.
+* **02:30 PM:** Visit Sajnekhali Watchtower for wildlife spotting.
+* **05:00 PM:** Sunset cruise through the creeks.
+* **07:00 PM:** Dinner and overnight on the boat or eco-cottage.
+
+#### **Day 2: Deep Forest Exploration**
+* **06:00 AM:** Early morning boat safari for tiger and deer spotting.
+* **09:00 AM:** Visit Dobanki Jungle Camp and canopy walk.
+* **12:00 PM:** Lunch and cruise to Katka.
+* **03:00 PM:** Visit Katka wildlife sanctuary and beach.
+* **06:00 PM:** Evening wildlife observation from the boat.
+* **08:00 PM:** Dinner and overnight on the boat.
+
+#### **Day 3: Final Wildlife Viewing and Return**
+* **06:00 AM:** Morning bird watching and photography.
+* **09:00 AM:** Visit Hiron Point for final wildlife viewing.
+* **12:00 PM:** Lunch and begin return journey.
+* **03:00 PM:** Return to Mongla.
+* **05:00 PM:** Depart for Khulna.
+
+**Local Food Guide:** Try fresh river fish, prawns, and local tribal cuisine.
+**Weather Tip:** Best time to visit is November to February. Bring mosquito repellent, binoculars, and comfortable clothes. Book licensed guide in advance."""
+
+        elif "rangamati" in prompt_lower and ("2 day" in prompt_lower or "2-day" in prompt_lower or "two day" in prompt_lower):
+            return """### 2-Day Rangamati Itinerary (Budget: ~4,000 BDT)
+
+A quick trip to the Lake City of Bangladesh:
+
+#### **Day 1: Kaptai Lake and Hanging Bridge**
+* **08:00 AM:** Arrive in Rangamati town, check into a lakeside hotel.
+* **10:00 AM:** Boat ride on Kaptai Lake.
+* **01:00 PM:** Lunch with local tribal cuisine.
+* **03:00 PM:** Visit the Hanging Bridge (Jhulonto Bridge).
+* **05:00 PM:** Explore the tribal villages and handicraft markets.
+* **07:00 PM:** Dinner and enjoy the lakeside view.
+
+#### **Day 2: Waterfalls and Departure**
+* **07:00 AM:** Visit Shuvolong Waterfall.
+* **10:00 AM:** Explore the Rajban Vihara Buddhist temple.
+* **01:00 PM:** Lunch at a local restaurant.
+* **03:00 PM:** Visit the Tribal Cultural Institute.
+* **05:00 PM:** Return to Rangamati town.
+* **06:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **bamboo shoot curry**, **fish from Kaptai Lake**, and **tribal pitha**.
+**Weather Tip:** Best time to visit is October to March. Bring light clothes and comfortable shoes for walking."""
+
+        elif "rangamati" in prompt_lower and ("3 day" in prompt_lower or "3-day" in prompt_lower or "three day" in prompt_lower):
+            return """### 3-Day Rangamati Itinerary (Budget: ~6,000 BDT)
+
+A comprehensive exploration of the Lake City:
+
+#### **Day 1: Kaptai Lake and Hanging Bridge**
+* **08:00 AM:** Arrive in Rangamati town, check into a lakeside hotel.
+* **10:00 AM:** Boat ride on Kaptai Lake.
+* **01:00 PM:** Lunch with local tribal cuisine.
+* **03:00 PM:** Visit the Hanging Bridge (Jhulonto Bridge).
+* **05:00 PM:** Explore the tribal villages and handicraft markets.
+* **07:00 PM:** Dinner and enjoy the lakeside view.
+
+#### **Day 2: Waterfalls and Tribal Culture**
+* **07:00 AM:** Visit Shuvolong Waterfall.
+* **10:00 AM:** Explore the Rajban Vihara Buddhist temple.
+* **01:00 PM:** Lunch at a tribal homestay.
+* **03:00 PM:** Visit the Tribal Cultural Institute.
+* **05:00 PM:** Explore the Chakma Royal Palace.
+* **07:00 PM:** Cultural evening with tribal music and dance.
+
+#### **Day 3: Lake Exploration and Departure**
+* **08:00 AM:** Full-day boat tour of Kaptai Lake with island visits.
+* **01:00 PM:** Lunch on a floating restaurant.
+* **03:00 PM:** Visit Pablakhali Forest Reserve.
+* **05:00 PM:** Return to Rangamati town.
+* **06:00 PM:** Depart for return journey.
+
+**Local Food Guide:** Try **bamboo shoot curry**, **fish from Kaptai Lake**, and **tribal pitha**.
+**Weather Tip:** Best time to visit is October to March. Bring light clothes and comfortable shoes for walking."""
 
         elif "sajek" in prompt_lower:
             return """### Sajek Valley Travel Assistant

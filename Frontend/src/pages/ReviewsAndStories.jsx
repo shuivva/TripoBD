@@ -314,6 +314,7 @@ export default function ReviewsAndStories() {
                     {destinations.map(d => (
                       <option key={d.slug} value={d.slug}>{d.name}</option>
                     ))}
+                    <option value="other">Other</option>
                   </select>
                 </label>
 

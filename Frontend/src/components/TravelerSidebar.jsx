@@ -11,7 +11,7 @@ export default function TravelerSidebar() {
     const footer = document.querySelector('.site-footer')
     const sidebar = sidebarRef.current
     
-    if (!footer || !sidebar || window.scrollY === 0) {
+    if (!footer || !sidebar) {
       setSidebarBottom(0)
       return
     }
