@@ -758,6 +758,25 @@ export async function submitGuideSupportTicket(userId, payload) {
   return res.json()
 }
 
+export async function submitSupportTicketWithScreenshot(userId, formData) {
+  const res = await fetch(`${API_BASE}/guide/${userId}/support/tickets/`, {
+    method: 'POST',
+    body: formData
+  })
+  if (!res.ok) throw new Error('Failed to submit support ticket')
+  return res.json()
+}
+
+export async function replySupportTicket(userId, payload) {
+  const res = await fetch(`${API_BASE}/guide/${userId}/support/tickets/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to submit support ticket action')
+  return res.json()
+}
+
 
 // SECTION 5: ADMIN PORTAL APIs
 export async function getAdminDashboard(adminId) {

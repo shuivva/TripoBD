@@ -47,13 +47,14 @@ export default function GuideNavigation() {
 
       <style>{`
         .guide-navbar {
-          background: #0f172a !important;
-          border-bottom: 1px solid #1e293b;
+          background: rgba(15, 23, 42, 0.85) !important;
+          border: 1px solid rgba(168, 85, 247, 0.2) !important;
+          backdrop-filter: blur(10px) saturate(1.06);
         }
         .guide-navbar .brand-link {
           color: white !important;
           font-weight: 900;
-          font-size: 1.4rem;
+          font-size: 1.25rem;
           display: flex;
           align-items: center;
           gap: 0.5rem;
@@ -71,18 +72,22 @@ export default function GuideNavigation() {
           color: #94a3b8 !important;
           font-size: 0.88rem;
           font-weight: 700;
-          transition: color 0.15s;
+          padding: 8px 12px;
+          border-radius: 10px;
+          transition: all 180ms ease;
           display: flex;
           align-items: center;
           gap: 0.35rem;
         }
         .guide-navbar .nav-link:hover {
-          color: #f1f5f9 !important;
+          background: rgba(168, 85, 247, 0.1) !important;
+          color: #c084fc !important;
+          transform: translateY(-2px);
         }
         .guide-navbar .nav-active {
-          color: #a855f7 !important;
-          border-bottom: 2.5px solid #a855f7;
-          padding-bottom: 0.2rem;
+          background: linear-gradient(90deg, #a855f7, #c084fc) !important;
+          color: white !important;
+          box-shadow: 0 8px 24px rgba(168, 85, 247, 0.18);
         }
         .guide-logout-btn {
           color: #cbd5e1 !important;

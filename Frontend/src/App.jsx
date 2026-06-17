@@ -25,6 +25,7 @@ import LocalBookings from './pages/LocalBookings'
 import NotificationsCentre from './pages/NotificationsCentre'
 import ReviewsAndStories from './pages/ReviewsAndStories'
 import AllStories from './pages/AllStories'
+import TravelerSupport from './pages/TravelerSupport'
 import NotFound from './pages/NotFound'
 
 // Guide portal pages
@@ -48,9 +49,12 @@ import AdminConfig from './pages/AdminConfig'
 import AdminLogs from './pages/AdminLogs'
 import AdminProfile from './pages/AdminProfile'
 
-function App() {
+function AppContent() {
+  const location = useLocation()
+  const hideFooter = location.pathname === '/traveler/ai'
+
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <>
       {/* choose nav based on current location */}
       <NavSelector />
       <Routes>
@@ -76,6 +80,7 @@ function App() {
         <Route path="/traveler/notifications" element={<NotificationsCentre />} />
         <Route path="/traveler/reviews-stories" element={<ReviewsAndStories />} />
         <Route path="/traveler/stories" element={<AllStories />} />
+        <Route path="/traveler/support" element={<TravelerSupport />} />
 
         {/* Guide portal routes */}
         <Route path="/guide/dashboard" element={<GuideDashboard />} />
@@ -100,7 +105,15 @@ function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <Footer />
+      {!hideFooter && <Footer />}
+    </>
+  )
+}
+
+function App() {
+  return (
+    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+      <AppContent />
     </BrowserRouter>
   )
 }

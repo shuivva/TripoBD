@@ -206,6 +206,15 @@ export default function AdminSupport() {
                 <p>"{selectedTicket.description}"</p>
               </div>
 
+              {selectedTicket.screenshot && (
+                <div className="ticket-screenshot-box" style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', background: '#fff' }}>
+                  <h4 style={{ fontSize: '0.82rem', fontWeight: 800, color: '#475569', margin: '0 0 0.5rem 0', textTransform: 'uppercase' }}>Attached Screenshot:</h4>
+                  <a href={selectedTicket.screenshot} target="_blank" rel="noopener noreferrer">
+                    <img src={selectedTicket.screenshot} alt="Attached Screenshot" style={{ maxWidth: '100%', maxHeight: '240px', borderRadius: '8px', border: '1px solid #e2e8f0', cursor: 'zoom-in' }} />
+                  </a>
+                </div>
+              )}
+
               {/* Chat Thread */}
               <div className="chat-thread-container">
                 {selectedTicket.conversation && selectedTicket.conversation.length > 0 ? (

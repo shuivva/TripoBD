@@ -250,23 +250,50 @@ def guide_support_tickets(request, user_id):
         return Response(SupportTicketSerializer(tickets, many=True).data)
         
     elif request.method == 'POST':
-        subject = request.data.get('subject')
-        description = request.data.get('description')
-        category = request.data.get('category', 'general')
-        priority = request.data.get('priority', 'medium')
+        action = request.data.get('action', 'create')
         
-        if not subject or not description:
-            return Response({'error': 'Subject and description are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if action == 'reply':
+            ticket_id = request.data.get('ticket_id')
+            reply_text = request.data.get('reply_text', '')
+            if not reply_text.strip():
+                return Response({'error': 'Reply text is required'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            ticket = SupportTicket.objects.filter(pk=ticket_id, user=user).first()
+            if not ticket:
+                return Response({'error': 'Ticket not found'}, status=status.HTTP_404_NOT_FOUND)
+                
+            conv = ticket.conversation or []
+            conv.append({
+                'sender': 'user',
+                'sender_name': user.username,
+                'message': reply_text,
+                'timestamp': timezone.now().isoformat()
+            })
+            ticket.conversation = conv
+            ticket.status = 'open' # set to open so admin knows user replied
+            ticket.save()
+            return Response(SupportTicketSerializer(ticket).data)
             
-        ticket = SupportTicket.objects.create(
-            user=user,
-            subject=subject,
-            description=description,
-            category=category,
-            priority=priority,
-            status='open'
-        )
-        return Response(SupportTicketSerializer(ticket).data, status=status.HTTP_201_CREATED)
+        else:
+            subject = request.data.get('subject')
+            description = request.data.get('description')
+            category = request.data.get('category', 'general')
+            priority = request.data.get('priority', 'medium')
+            screenshot = request.FILES.get('screenshot')
+            
+            if not subject or not description:
+                return Response({'error': 'Subject and description are required'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            ticket = SupportTicket.objects.create(
+                user=user,
+                subject=subject,
+                description=description,
+                category=category,
+                priority=priority,
+                screenshot=screenshot,
+                status='open'
+            )
+            return Response(SupportTicketSerializer(ticket).data, status=status.HTTP_201_CREATED)
 
 
 # =====================================================================

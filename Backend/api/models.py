@@ -980,6 +980,7 @@ class SupportTicket(models.Model):
     assigned_to = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_tickets')
     conversation = models.JSONField(default=list, blank=True, help_text='List of chat replies')
     internal_notes = models.TextField(blank=True, default='')
+    screenshot = models.ImageField(upload_to='support_screenshots/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

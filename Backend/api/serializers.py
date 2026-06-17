@@ -616,7 +616,7 @@ class SupportTicketSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user', 'username', 'full_name', 'subject', 'description',
             'category', 'priority', 'status', 'assigned_to', 'assigned_username',
-            'conversation', 'internal_notes', 'created_at', 'updated_at'
+            'conversation', 'internal_notes', 'screenshot', 'created_at', 'updated_at'
         ]
 
 

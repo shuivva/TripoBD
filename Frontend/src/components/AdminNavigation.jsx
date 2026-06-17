@@ -77,25 +77,25 @@ export default function AdminNavigation() {
       </aside>
 
       <style>{`
-        /* Top Navbar styling */
         .admin-navbar {
           position: fixed;
           top: 0;
           left: 0;
           right: 0;
           height: 60px;
-          background: #1e293b !important;
-          border-bottom: 1px solid #334155;
+          background: rgba(30, 41, 59, 0.85) !important;
+          border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+          backdrop-filter: blur(10px) saturate(1.06);
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 0 1.5rem;
+          padding: 0 40px;
           z-index: 1000;
         }
         .admin-navbar .brand-link {
           color: white !important;
           font-weight: 900;
-          font-size: 1.4rem;
+          font-size: 1.25rem;
           display: flex;
           align-items: center;
           gap: 0.5rem;

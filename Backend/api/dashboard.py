@@ -41,7 +41,7 @@ def _destination_card(dest):
     }
 
 
-def _recommended_destinations(profile, limit=3):
+def _recommended_destinations(profile, limit=4):
     prefs = getattr(profile, 'travel_preferences', None)
     preferred = []
     if prefs and prefs.preferred_destinations:

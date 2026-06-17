@@ -84,6 +84,7 @@ from .serializers import (
 
 @api_view(['POST'])
 def login_view(request):
+    print("LOGIN REQUEST DATA RECEIVED:", request.data)
     identifier = request.data.get('identifier')
     password = request.data.get('password')
 
@@ -92,6 +93,7 @@ def login_view(request):
 
     # Try authenticating directly by username
     user = authenticate(request, username=identifier, password=password)
+    print("DEBUG: authenticate(request) returned:", user)
 
     # If not found and identifier looks like an email, try resolving username by email
     if user is None and '@' in identifier:

@@ -98,6 +98,10 @@ export default function TravelerRoom() {
   const [inviteSubmitting, setInviteSubmitting] = useState(false)
 
   const chatEndRef = useRef(null)
+  const chatContainerRef = useRef(null)
+  const isAtBottomRef = useRef(true)
+  const shouldScrollToBottomRef = useRef(false)
+  const lastTabRef = useRef(activeTab)
 
   // 1. Fetch Tour Rooms & Invites when in list view
   const loadOverviewData = async () => {
@@ -185,10 +189,24 @@ export default function TravelerRoom() {
     }
   }, [activeTab, queryRoomId])
 
+  const handleChatScroll = () => {
+    const container = chatContainerRef.current
+    if (!container) return
+    const threshold = 50 // 50px tolerance
+    const isAtBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold
+    isAtBottomRef.current = isAtBottom
+  }
+
   useEffect(() => {
     if (activeTab === 'chat') {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      const isTabSwitch = lastTabRef.current !== 'chat'
+      if (isTabSwitch || isAtBottomRef.current || shouldScrollToBottomRef.current) {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+        isAtBottomRef.current = true
+        shouldScrollToBottomRef.current = false
+      }
     }
+    lastTabRef.current = activeTab
   }, [chatMessages, activeTab])
 
   // Handlers
@@ -433,6 +451,7 @@ export default function TravelerRoom() {
       attachment_url: attachUrl,
       created_at: new Date().toISOString(),
     }
+    shouldScrollToBottomRef.current = true
     setChatMessages(prev => [...prev, optimisticMsg])
     try {
       await sendTourRoomChatMessage(queryRoomId, userId, msgText, attachUrl)
@@ -556,7 +575,7 @@ export default function TravelerRoom() {
     // Calculate split cost summaries
     const totalExpenses = (roomDetail.expenses || []).reduce((acc, curr) => acc + parseFloat(curr.amount), 0)
     const unpaidShares = (roomDetail.expenses || []).reduce((acc, exp) => {
-      const userUnpaid = exp.participants.filter(p => p.user.id === parseInt(userId) && !p.is_paid)
+      const userUnpaid = exp.participants.filter(p => p.user === parseInt(userId) && !p.is_paid)
       return acc + userUnpaid.reduce((s, p) => s + parseFloat(p.share_amount), 0)
     }, 0)
 
@@ -728,8 +747,8 @@ export default function TravelerRoom() {
                             <h5>Splits Breakdown:</h5>
                             {exp.participants.map(part => (
                               <div key={part.id} className="share-participant-row">
-                                <span>{part.user.username} (Share: {part.share_amount} ৳)</span>
-                                {part.user.id === parseInt(userId) ? (
+                                <span>{part.full_name ? `${part.full_name} (${part.username})` : (part.username || 'Traveler')} (Share: {part.share_amount} ৳)</span>
+                                {part.user === parseInt(userId) ? (
                                   <label className="toggle-pay-checkbox">
                                     <input
                                       type="checkbox"
@@ -961,7 +980,11 @@ export default function TravelerRoom() {
           {/* TAB 5: GROUP CHAT */}
           {activeTab === 'chat' && (
             <div className="tab-pane-content tr-chat-pane">
-              <div className="chat-messages-container">
+              <div 
+                className="chat-messages-container"
+                ref={chatContainerRef}
+                onScroll={handleChatScroll}
+              >
                 {chatMessages.length === 0 ? (
                   <div className="chat-empty-prompt">
                     <span>💬</span>

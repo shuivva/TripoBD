@@ -400,7 +400,7 @@ export default function AIAssistant() {
 
       <style>{`
         .ai-assistant-shell {
-          height: calc(100vh - 100px);
+          height: calc(100vh - 140px);
           max-width: 1200px;
           margin: 0 auto;
           display: flex;
@@ -417,6 +417,8 @@ export default function AIAssistant() {
           box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
           border: 1px solid #e2e8f0;
           flex: 1;
+          height: 100%;
+          min-height: 0;
         }
 
         /* Sidebar */
@@ -425,6 +427,7 @@ export default function AIAssistant() {
           border-right: 1px solid #e2e8f0;
           display: flex;
           flex-direction: column;
+          min-height: 0;
         }
         .ai-sidebar-header {
           padding: 1.5rem;
@@ -539,6 +542,8 @@ export default function AIAssistant() {
           flex-direction: column;
           flex: 1;
           background: white;
+          min-height: 0;
+          overflow: hidden;
         }
         .ai-chat-header {
           padding: 1.5rem;
