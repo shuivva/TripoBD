@@ -305,9 +305,10 @@ export default function Settings() {
             <div className="settings-section">
               <h3>Display & Language</h3>
               
-              <div className="setting-group">
-                <label>Theme</label>
+              <div className="form-group">
+                <label className="form-label">Theme</label>
                 <select 
+                  className="form-control"
                   value={displaySettings.theme}
                   onChange={(e) => setDisplaySettings({...displaySettings, theme: e.target.value})}
                 >
@@ -317,9 +318,10 @@ export default function Settings() {
                 </select>
               </div>
               
-              <div className="setting-group">
-                <label>Font Size</label>
+              <div className="form-group">
+                <label className="form-label">Font Size</label>
                 <select 
+                  className="form-control"
                   value={displaySettings.font_size}
                   onChange={(e) => setDisplaySettings({...displaySettings, font_size: e.target.value})}
                 >
@@ -329,9 +331,10 @@ export default function Settings() {
                 </select>
               </div>
               
-              <div className="setting-group">
-                <label>Language</label>
+              <div className="form-group">
+                <label className="form-label">Language</label>
                 <select 
+                  className="form-control"
                   value={displaySettings.language}
                   onChange={(e) => setDisplaySettings({...displaySettings, language: e.target.value})}
                 >
@@ -350,9 +353,10 @@ export default function Settings() {
             <div className="settings-section">
               <h3>Account & Privacy</h3>
               
-              <div className="setting-group">
-                <label>Profile Visibility</label>
+              <div className="form-group">
+                <label className="form-label">Profile Visibility</label>
                 <select 
+                  className="form-control"
                   value={accountSettings.profile_visibility}
                   onChange={(e) => setAccountSettings({...accountSettings, profile_visibility: e.target.value})}
                 >
@@ -360,27 +364,27 @@ export default function Settings() {
                   <option value="friends_only">Friends Only</option>
                   <option value="private">Private</option>
                 </select>
-                <small>Control who can see your profile and activity</small>
+                <small className="form-error-msg" style={{color: '#64748b'}}>Control who can see your profile and activity</small>
               </div>
               
-              <div className="setting-group">
-                <label>Tour Room Invites</label>
-                <select>
+              <div className="form-group">
+                <label className="form-label">Tour Room Invites</label>
+                <select className="form-control">
                   <option value="everyone">Everyone</option>
                   <option value="friends">Friends Only</option>
                   <option value="none">No One</option>
                 </select>
-                <small>Control who can invite you to Tour Rooms</small>
+                <small className="form-error-msg" style={{color: '#64748b'}}>Control who can invite you to Tour Rooms</small>
               </div>
               
-              <div className="setting-group">
-                <label>Story Visibility</label>
-                <select>
+              <div className="form-group">
+                <label className="form-label">Story Visibility</label>
+                <select className="form-control">
                   <option value="public">Public</option>
                   <option value="followers">Followers Only</option>
                   <option value="private">Private</option>
                 </select>
-                <small>Control who can see your travel stories</small>
+                <small className="form-error-msg" style={{color: '#64748b'}}>Control who can see your travel stories</small>
               </div>
               
               <button className="button button-primary" onClick={handleAccountSettingsSave} disabled={loading}>
@@ -413,27 +417,30 @@ export default function Settings() {
               
               <h4>Change Password</h4>
               <form onSubmit={handlePasswordChange}>
-                <div className="setting-group">
-                  <label>Current Password</label>
+                <div className="form-group">
+                  <label className="form-label required">Current Password</label>
                   <input 
+                    className="form-control"
                     type="password"
                     value={passwordForm.old_password}
                     onChange={(e) => setPasswordForm({...passwordForm, old_password: e.target.value})}
                     required
                   />
                 </div>
-                <div className="setting-group">
-                  <label>New Password</label>
+                <div className="form-group">
+                  <label className="form-label required">New Password</label>
                   <input 
+                    className="form-control"
                     type="password"
                     value={passwordForm.new_password}
                     onChange={(e) => setPasswordForm({...passwordForm, new_password: e.target.value})}
                     required
                   />
                 </div>
-                <div className="setting-group">
-                  <label>Confirm New Password</label>
+                <div className="form-group">
+                  <label className="form-label required">Confirm New Password</label>
                   <input 
+                    className="form-control"
                     type="password"
                     value={passwordForm.confirm_password}
                     onChange={(e) => setPasswordForm({...passwordForm, confirm_password: e.target.value})}
@@ -452,18 +459,20 @@ export default function Settings() {
               <h3>Blocked Users</h3>
               
               <div className="block-user-form">
-                <div className="setting-group">
-                  <label>Block User by Username</label>
+                <div className="form-group">
+                  <label className="form-label">Block User by Username</label>
                   <input 
+                    className="form-control"
                     type="text"
                     placeholder="Enter username"
                     value={blockUsername}
                     onChange={(e) => setBlockUsername(e.target.value)}
                   />
                 </div>
-                <div className="setting-group">
-                  <label>Reason (Optional)</label>
+                <div className="form-group">
+                  <label className="form-label">Reason (Optional)</label>
                   <input 
+                    className="form-control"
                     type="text"
                     placeholder="Why are you blocking this user?"
                     value={blockReason}
@@ -525,9 +534,10 @@ export default function Settings() {
                 ) : (
                   <div>
                     <p className="community-muted">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                    <div className="setting-group">
-                      <label>Reason for deletion (Optional)</label>
+                    <div className="form-group">
+                      <label className="form-label">Reason for deletion (Optional)</label>
                       <textarea 
+                        className="form-control"
                         placeholder="Why are you leaving?"
                         value={deletionReason}
                         onChange={(e) => setDeletionReason(e.target.value)}

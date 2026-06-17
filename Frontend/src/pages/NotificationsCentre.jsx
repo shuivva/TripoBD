@@ -183,12 +183,16 @@ export default function NotificationsCentre() {
 
           <div className="notif-list-feed">
             {loading ? (
-              <p className="loading-text">Fetching notifications...</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div className="skeleton-loader" style={{height: '60px'}}></div>
+                <div className="skeleton-loader" style={{height: '60px'}}></div>
+                <div className="skeleton-loader" style={{height: '60px'}}></div>
+              </div>
             ) : notifications.length === 0 ? (
-              <div className="empty-notif-state">
-                <span>🔔</span>
-                <h4>No Notifications Alerting</h4>
-                <p>Everything is quiet! Future travel coordination messages and reminders will display here.</p>
+              <div className="empty-state-card">
+                <span className="empty-state-icon">🔔</span>
+                <h4 className="empty-state-title">No Notifications Alerting</h4>
+                <p className="empty-state-text">Everything is quiet! Future travel coordination messages and reminders will display here.</p>
               </div>
             ) : (
               notifications.map(n => (

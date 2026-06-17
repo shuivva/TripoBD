@@ -494,19 +494,19 @@ export default function TravelerDashboard() {
 
       {/* ── Plan a Trip Modal ── */}
       {showPlanModal && (
-        <div className="pt-overlay" onClick={(e) => e.target.classList.contains('pt-overlay') && setShowPlanModal(false)}>
-          <div className="pt-modal">
+        <div className="shared-modal-overlay" onClick={(e) => e.target.classList.contains('shared-modal-overlay') && setShowPlanModal(false)}>
+          <div className="shared-modal-content pt-modal">
             {/* Header */}
-            <div className="pt-modal-head">
+            <div className="shared-modal-header">
               <div>
                 <span className="pt-eyebrow">✦ Trip Planner</span>
-                <h2 className="pt-modal-title">Plan Your Next Adventure</h2>
+                <h2 className="shared-modal-title">Plan Your Next Adventure</h2>
               </div>
-              <button className="pt-close" onClick={() => setShowPlanModal(false)}>✕</button>
+              <button className="pt-close" style={{background: 'transparent', border: 'none', fontSize: '1.25rem', cursor: 'pointer', padding: '0.25rem 0.5rem'}} onClick={() => setShowPlanModal(false)}>✕</button>
             </div>
 
             {/* Step indicators */}
-            <div className="pt-steps">
+            <div className="pt-steps" style={{padding: '0 1.5rem', marginTop: '1rem'}}>
               {['Destination', 'Dates & Group', 'Details'].map((s, i) => (
                 <div key={s} className={`pt-step ${planStep > i + 1 ? 'pt-step-done' : ''} ${planStep === i + 1 ? 'pt-step-active' : ''}`}>
                   <div className="pt-step-num">{planStep > i + 1 ? '✓' : i + 1}</div>
@@ -517,7 +517,7 @@ export default function TravelerDashboard() {
 
             {/* Step 1 – Destination */}
             {planStep === 1 && (
-              <div className="pt-step-body">
+              <div className="shared-modal-body">
                 <p className="pt-step-desc">Where do you want to go?</p>
                 <div className="pt-dest-grid">
                   {(destinations.length > 0 ? destinations : [
@@ -539,8 +539,12 @@ export default function TravelerDashboard() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+            {planStep === 1 && (
+              <div className="shared-modal-footer">
                 <button
-                  className="pt-next-btn" disabled={!planForm.destination}
+                  className="button button-primary" disabled={!planForm.destination}
                   onClick={() => setPlanStep(2)}
                 >Next: Set Dates →</button>
               </div>
@@ -548,23 +552,23 @@ export default function TravelerDashboard() {
 
             {/* Step 2 – Dates & Group */}
             {planStep === 2 && (
-              <div className="pt-step-body">
+              <div className="shared-modal-body">
                 <p className="pt-step-desc">When are you going and who's coming?</p>
                 <div className="pt-form-grid">
-                  <div className="pt-field">
-                    <label>📅 Start Date</label>
-                    <input type="date" value={planForm.start_date}
+                  <div className="form-group">
+                    <label className="form-label">📅 Start Date</label>
+                    <input type="date" className="form-control" value={planForm.start_date}
                       min={new Date().toISOString().split('T')[0]}
                       onChange={e => setPlanForm(f => ({ ...f, start_date: e.target.value }))} />
                   </div>
-                  <div className="pt-field">
-                    <label>📅 End Date</label>
-                    <input type="date" value={planForm.end_date}
+                  <div className="form-group">
+                    <label className="form-label">📅 End Date</label>
+                    <input type="date" className="form-control" value={planForm.end_date}
                       min={planForm.start_date || new Date().toISOString().split('T')[0]}
                       onChange={e => setPlanForm(f => ({ ...f, end_date: e.target.value }))} />
                   </div>
-                  <div className="pt-field">
-                    <label>👥 Max Group Size</label>
+                  <div className="form-group" style={{gridColumn: '1 / -1'}}>
+                    <label className="form-label">👥 Max Group Size</label>
                     <div className="pt-counter">
                       <button type="button" onClick={() => setPlanForm(f => ({ ...f, max_members: Math.max(2, f.max_members - 1) }))}>−</button>
                       <span>{planForm.max_members} people</span>
@@ -572,59 +576,56 @@ export default function TravelerDashboard() {
                     </div>
                   </div>
                 </div>
-                <div className="pt-btn-row">
-                  <button className="pt-back-btn" onClick={() => setPlanStep(1)}>← Back</button>
-                  <button
-                    className="pt-next-btn"
-                    disabled={!planForm.start_date || !planForm.end_date}
-                    onClick={() => setPlanStep(3)}
-                  >Next: Details →</button>
-                </div>
+              </div>
+            )}
+            {planStep === 2 && (
+              <div className="shared-modal-footer">
+                <button className="button button-secondary" onClick={() => setPlanStep(1)}>← Back</button>
+                <button
+                  className="button button-primary"
+                  disabled={!planForm.start_date || !planForm.end_date}
+                  onClick={() => setPlanStep(3)}
+                >Next: Details →</button>
               </div>
             )}
 
             {/* Step 3 – Details & Create */}
             {planStep === 3 && (
-              <div className="pt-step-body">
+              <div className="shared-modal-body">
                 <p className="pt-step-desc">Give your trip a name and optional description.</p>
                 <div className="pt-form-col">
-                  <div className="pt-field">
-                    <label>✏️ Trip Name *</label>
+                  <div className="form-group">
+                    <label className="form-label required">✏️ Trip Name</label>
                     <input
+                      className="form-control"
                       type="text" placeholder="e.g. Sundarbans Adventure 2025"
                       value={planForm.name}
                       onChange={e => setPlanForm(f => ({ ...f, name: e.target.value }))}
                     />
                   </div>
-                  <div className="pt-field">
-                    <label>📝 Description (optional)</label>
+                  <div className="form-group">
+                    <label className="form-label">📝 Description (optional)</label>
                     <textarea
-                      placeholder="What's the plan? Any special activities?"
-                      rows={3} value={planForm.description}
+                      className="form-control"
+                      placeholder="What are the main goals or vibes of this trip?"
+                      value={planForm.description}
                       onChange={e => setPlanForm(f => ({ ...f, description: e.target.value }))}
                     />
                   </div>
                 </div>
-
-                {/* Summary */}
-                <div className="pt-summary">
-                  <div className="pt-summary-row"><span>📍 Destination</span><strong>{planForm.destination}</strong></div>
-                  <div className="pt-summary-row"><span>📅 Dates</span><strong>{planForm.start_date} → {planForm.end_date}</strong></div>
-                  <div className="pt-summary-row"><span>👥 Group</span><strong>Up to {planForm.max_members} people</strong></div>
-                </div>
-
-                {planError && <p className="pt-error">{planError}</p>}
-
-                <div className="pt-btn-row">
-                  <button className="pt-back-btn" onClick={() => setPlanStep(2)}>← Back</button>
-                  <button
-                    className="pt-create-btn"
-                    disabled={planLoading || !planForm.name.trim()}
-                    onClick={handlePlanSubmit}
-                  >
-                    {planLoading ? '⏳ Creating…' : '🚀 Create Trip Room'}
-                  </button>
-                </div>
+                {planError && <div className="profile-alert error" style={{marginTop: '1rem'}}>{planError}</div>}
+              </div>
+            )}
+            {planStep === 3 && (
+              <div className="shared-modal-footer">
+                <button className="button button-secondary" onClick={() => setPlanStep(2)} disabled={planLoading}>← Back</button>
+                <button
+                  className="button button-primary"
+                  onClick={handlePlanSubmit}
+                  disabled={!planForm.name.trim() || planLoading}
+                >
+                  {planLoading ? 'Creating...' : 'Create Trip ✨'}
+                </button>
               </div>
             )}
           </div>

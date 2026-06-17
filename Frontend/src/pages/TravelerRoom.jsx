@@ -2108,12 +2108,16 @@ export default function TravelerRoom() {
       <section className="rooms-grid-section">
         <h3>Active Tour Rooms</h3>
         {overviewLoading ? (
-          <p className="rooms-loading-msg">Fetching your active Tour Rooms...</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+             <div className="skeleton-loader" style={{height: '250px'}}></div>
+             <div className="skeleton-loader" style={{height: '250px'}}></div>
+             <div className="skeleton-loader" style={{height: '250px'}}></div>
+          </div>
         ) : rooms.length === 0 ? (
-          <div className="rooms-empty-state">
-            <span>🗺️</span>
-            <h4>No Active Tour Rooms Found</h4>
-            <p>Create a new planner room to start coordinating with friends, or accept pending invitations.</p>
+          <div className="empty-state-card" style={{ padding: '4rem 2rem' }}>
+            <span className="empty-state-icon" style={{ fontSize: '3rem' }}>🗺️</span>
+            <h4 className="empty-state-title">No Active Tour Rooms Found</h4>
+            <p className="empty-state-text">Create a new planner room to start coordinating with friends, or accept pending invitations.</p>
             <button className="button button-secondary" onClick={() => setShowCreateModal(true)}>
               Start a New Tour Room
             </button>
@@ -2150,79 +2154,90 @@ export default function TravelerRoom() {
 
       {/* Create Room Modal */}
       {showCreateModal && (
-        <div className="crop-modal">
-          <div className="crop-modal-content create-room-modal-card">
-            <h3>Start New Tour Room Planner</h3>
-            <p className="community-muted">Initialize a collaborative space for your travel group.</p>
+        <div className="shared-modal-overlay" onClick={(e) => e.target.classList.contains('shared-modal-overlay') && setShowCreateModal(false)}>
+          <div className="shared-modal-content" style={{maxWidth: '500px'}}>
+            <div className="shared-modal-header">
+              <h2 className="shared-modal-title">Start New Tour Room Planner</h2>
+              <button style={{background: 'transparent', border: 'none', fontSize: '1.25rem', cursor: 'pointer', padding: '0.25rem 0.5rem'}} onClick={() => setShowCreateModal(false)}>✕</button>
+            </div>
             
-            <form onSubmit={handleCreateRoom} className="create-room-form">
-              <label>
-                Tour Room Name
-                <input
-                  type="text"
-                  value={newRoomName}
-                  onChange={e => setNewRoomName(e.target.value)}
-                  placeholder="e.g. Sajek Valley Monsoon Tour..."
-                  required
-                />
-              </label>
-
-              <label>
-                Destination
-                <select value={newRoomDestination} onChange={e => setNewRoomDestination(e.target.value)} required>
-                  <option value="bandarban">Bandarban</option>
-                  <option value="sajek">Sajek Valley</option>
-                  <option value="coxs-bazar">Cox's Bazar</option>
-                  <option value="sundarbans">Sundarbans</option>
-                  <option value="sylhet">Sylhet</option>
-                  <option value="sreemangal">Sreemangal</option>
-                </select>
-              </label>
-
-              <div className="double-inputs">
-                <label>
-                  Start Date
+            <form onSubmit={handleCreateRoom} style={{display: 'flex', flexDirection: 'column'}}>
+              <div className="shared-modal-body">
+                <p className="community-muted" style={{marginTop: 0, marginBottom: '1.5rem'}}>Initialize a collaborative space for your travel group.</p>
+                
+                <div className="form-group">
+                  <label className="form-label required">Tour Room Name</label>
                   <input
-                    type="date"
-                    value={newRoomStartDate}
-                    onChange={e => setNewRoomStartDate(e.target.value)}
+                    className="form-control"
+                    type="text"
+                    value={newRoomName}
+                    onChange={e => setNewRoomName(e.target.value)}
+                    placeholder="e.g. Sajek Valley Monsoon Tour..."
                     required
                   />
-                </label>
-                <label>
-                  End Date
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label required">Destination</label>
+                  <select className="form-control" value={newRoomDestination} onChange={e => setNewRoomDestination(e.target.value)} required>
+                    <option value="bandarban">Bandarban</option>
+                    <option value="sajek">Sajek Valley</option>
+                    <option value="coxs-bazar">Cox's Bazar</option>
+                    <option value="sundarbans">Sundarbans</option>
+                    <option value="sylhet">Sylhet</option>
+                    <option value="sreemangal">Sreemangal</option>
+                  </select>
+                </div>
+
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
+                  <div className="form-group">
+                    <label className="form-label required">Start Date</label>
+                    <input
+                      className="form-control"
+                      type="date"
+                      value={newRoomStartDate}
+                      onChange={e => setNewRoomStartDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label required">End Date</label>
+                    <input
+                      className="form-control"
+                      type="date"
+                      value={newRoomEndDate}
+                      onChange={e => setNewRoomEndDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Cover Photo URL (Optional)</label>
                   <input
-                    type="date"
-                    value={newRoomEndDate}
-                    onChange={e => setNewRoomEndDate(e.target.value)}
+                    className="form-control"
+                    type="text"
+                    value={newRoomCover}
+                    onChange={e => setNewRoomCover(e.target.value)}
+                    placeholder="Paste cover image web link..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label required">Max Member Count</label>
+                  <input
+                    className="form-control"
+                    type="number"
+                    min="2"
+                    max="100"
+                    value={newRoomMaxMembers}
+                    onChange={e => setNewRoomMaxMembers(parseInt(e.target.value) || 10)}
                     required
                   />
-                </label>
+                </div>
               </div>
 
-              <label>
-                Cover Photo URL (Optional)
-                <input
-                  type="text"
-                  value={newRoomCover}
-                  onChange={e => setNewRoomCover(e.target.value)}
-                  placeholder="Paste cover image web link..."
-                />
-              </label>
-
-              <label>
-                Max Member Count
-                <input
-                  type="number"
-                  min="2"
-                  max="100"
-                  value={newRoomMaxMembers}
-                  onChange={e => setNewRoomMaxMembers(parseInt(e.target.value) || 10)}
-                  required
-                />
-              </label>
-
-              <div className="crop-modal-actions" style={{ marginTop: '1.25rem' }}>
+              <div className="shared-modal-footer">
                 <button type="button" className="button button-secondary" onClick={() => setShowCreateModal(false)} disabled={createSubmitting}>
                   Cancel
                 </button>

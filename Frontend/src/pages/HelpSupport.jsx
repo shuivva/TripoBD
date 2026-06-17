@@ -265,7 +265,11 @@ export default function HelpSupport() {
               
               <div className="faq-list">
                 {faqs.length === 0 ? (
-                  <p className="community-muted">No FAQs found</p>
+                  <div className="empty-state-card">
+                    <span className="empty-state-icon">❓</span>
+                    <h4 className="empty-state-title">No FAQs found</h4>
+                    <p className="empty-state-text">There are no FAQs matching your search or category.</p>
+                  </div>
                 ) : (
                   faqs.map((faq) => (
                     <div key={faq.id} className="faq-item">
@@ -374,7 +378,11 @@ export default function HelpSupport() {
                   <div className="tickets-list">
                     <h4>My Tickets ({tickets.length})</h4>
                     {tickets.length === 0 ? (
-                      <p className="community-muted">No support tickets yet</p>
+                      <div className="empty-state-card" style={{ padding: '2rem' }}>
+                        <span className="empty-state-icon">🎫</span>
+                        <h4 className="empty-state-title">No support tickets yet</h4>
+                        <p className="empty-state-text">You haven't submitted any support tickets.</p>
+                      </div>
                     ) : (
                       tickets.map((ticket) => (
                         <div key={ticket.id} className="ticket-item" onClick={() => loadTicketDetail(ticket.id)}>
@@ -403,7 +411,11 @@ export default function HelpSupport() {
               
               <div className="tutorials-grid">
                 {tutorials.length === 0 ? (
-                  <p className="community-muted">No tutorials available</p>
+                  <div className="empty-state-card">
+                    <span className="empty-state-icon">📹</span>
+                    <h4 className="empty-state-title">No tutorials available</h4>
+                    <p className="empty-state-text">There are no video tutorials available at the moment.</p>
+                  </div>
                 ) : (
                   tutorials.map((tutorial) => (
                     <div key={tutorial.id} className="tutorial-card">

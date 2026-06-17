@@ -59,6 +59,7 @@ from .models import (
     DisplaySettings,
     AppFeedback,
     BugReport,
+    SupportTicket,
 )
 from .dashboard import build_traveler_dashboard
 from .serializers import (
@@ -106,6 +107,7 @@ from .serializers import (
     DisplaySettingsSerializer,
     AppFeedbackSerializer,
     BugReportSerializer,
+    SupportTicketSerializer,
 )
 
 
