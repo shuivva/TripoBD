@@ -42,6 +42,19 @@ from .models import (
     SupportTicket,
     SystemConfig,
     AdminAuditLog,
+    FAQCategory,
+    FAQItem,
+    VideoTutorial,
+    LandingStory,
+    AppStat,
+    ValueCard,
+    AboutFeature,
+    AboutPainPoint,
+    ContactMessage,
+    BlockedUser,
+    DisplaySettings,
+    AppFeedback,
+    BugReport,
 )
 
 
@@ -72,7 +85,10 @@ class TourGroupSerializer(serializers.ModelSerializer):
 class DestinationListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Destination
-        fields = ['slug', 'name', 'region', 'category', 'budget', 'rating', 'hero', 'summary']
+        fields = [
+            'slug', 'name', 'region', 'category', 'budget', 'rating', 'hero', 'summary', 
+            'is_featured', 'is_spotlight', 'duration', 'season', 'tagline', 'best_for', 'highlights', 'tips'
+        ]
 
 
 class DestinationDetailSerializer(serializers.ModelSerializer):
@@ -101,6 +117,12 @@ class DestinationDetailSerializer(serializers.ModelSerializer):
             'accommodations',
             'reviews',
             'groups',
+            'is_featured',
+            'is_spotlight',
+            'tagline',
+            'best_for',
+            'highlights',
+            'tips',
         ]
 
 
@@ -541,8 +563,8 @@ class TourRoomInviteSerializer(serializers.ModelSerializer):
 
 
 class TourRoomSerializer(serializers.ModelSerializer):
-    destination_name = serializers.CharField(source='destination.name', read_only=True)
-    destination_slug = serializers.CharField(source='destination.slug', read_only=True)
+    destination_name = serializers.SerializerMethodField()
+    destination_slug = serializers.SerializerMethodField()
     owner_username = serializers.CharField(source='owner.username', read_only=True)
 
     class Meta:
@@ -552,6 +574,12 @@ class TourRoomSerializer(serializers.ModelSerializer):
             'start_datetime', 'end_datetime', 'description', 'owner', 'owner_username',
             'cover_photo', 'invite_code', 'is_archived', 'is_public', 'max_members', 'created_at'
         ]
+
+    def get_destination_name(self, obj):
+        return obj.destination.name if obj.destination else None
+
+    def get_destination_slug(self, obj):
+        return obj.destination.slug if obj.destination else None
 
 
 class ServiceProviderProfileSerializer(serializers.ModelSerializer):
@@ -607,9 +635,9 @@ class PayoutRequestSerializer(serializers.ModelSerializer):
 
 
 class SupportTicketSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username', read_only=True)
-    full_name = serializers.CharField(source='user.profile.full_name', read_only=True)
-    assigned_username = serializers.CharField(source='assigned_to.username', read_only=True)
+    username = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
+    assigned_username = serializers.SerializerMethodField()
     
     class Meta:
         model = SupportTicket
@@ -618,6 +646,18 @@ class SupportTicketSerializer(serializers.ModelSerializer):
             'category', 'priority', 'status', 'assigned_to', 'assigned_username',
             'conversation', 'internal_notes', 'created_at', 'updated_at'
         ]
+    
+    def get_username(self, obj):
+        return obj.user.username if obj.user else None
+    
+    def get_full_name(self, obj):
+        try:
+            return obj.user.profile.full_name if obj.user and hasattr(obj.user, 'profile') else None
+        except:
+            return None
+    
+    def get_assigned_username(self, obj):
+        return obj.assigned_to.username if obj.assigned_to else None
 
 
 class AdminAuditLogSerializer(serializers.ModelSerializer):
@@ -651,3 +691,103 @@ class UserManagementSerializer(serializers.ModelSerializer):
         if not obj.is_active:
             return 'Suspended'
         return 'Active'
+
+
+class FAQCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FAQCategory
+        fields = ['id', 'name']
+
+
+class FAQItemSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_id = serializers.PrimaryKeyRelatedField(
+        queryset=FAQCategory.objects.all(), source='category', write_only=True
+    )
+
+    class Meta:
+        model = FAQItem
+        fields = ['id', 'category_name', 'category_id', 'question', 'answer']
+
+
+class VideoTutorialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = VideoTutorial
+        fields = ['id', 'title', 'duration', 'thumbnail', 'description']
+
+
+class LandingStorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LandingStory
+        fields = ['id', 'title', 'summary', 'image', 'location', 'rating']
+
+
+class AppStatSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppStat
+        fields = ['id', 'label', 'value']
+
+
+class ValueCardSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ValueCard
+        fields = ['id', 'title', 'description']
+
+
+class AboutFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutFeature
+        fields = ['id', 'icon', 'title', 'description']
+
+
+class AboutPainPointSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AboutPainPoint
+        fields = ['id', 'n', 'icon', 'title', 'description']
+
+
+class ContactMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactMessage
+        fields = ['id', 'name', 'email', 'message', 'created_at', 'is_read']
+
+
+class BlockedUserSerializer(serializers.ModelSerializer):
+    blocked_username = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BlockedUser
+        fields = ['id', 'blocked', 'blocked_username', 'blocked_at', 'reason']
+    
+    def get_blocked_username(self, obj):
+        return obj.blocked.username
+
+
+class DisplaySettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisplaySettings
+        fields = ['id', 'theme', 'font_size', 'language']
+
+
+class AppFeedbackSerializer(serializers.ModelSerializer):
+    user_username = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = AppFeedback
+        fields = ['id', 'user', 'user_username', 'rating', 'feedback', 'category', 'created_at']
+        read_only_fields = ['user']
+    
+    def get_user_username(self, obj):
+        return obj.user.username
+
+
+class BugReportSerializer(serializers.ModelSerializer):
+    user_username = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = BugReport
+        fields = ['id', 'user', 'user_username', 'title', 'description', 'severity', 'screenshot', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['user', 'status']
+    
+    def get_user_username(self, obj):
+        return obj.user.username if obj.user else 'Anonymous'

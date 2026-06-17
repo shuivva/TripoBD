@@ -27,6 +27,13 @@ from .guide_admin_views import (
     admin_system_config,
     admin_audit_logs,
     admin_send_announcement,
+    admin_faq_management,
+    admin_faq_category_management,
+    admin_tutorial_management,
+    admin_about_management,
+    admin_contact_messages,
+    admin_home_management,
+    admin_route_management,
 )
 
 urlpatterns = [
@@ -118,6 +125,7 @@ urlpatterns = [
     path('traveler/wishlist/<int:wishlist_id>/delete/', wishlist_delete, name='wishlist-delete'),
     path('traveler/wishlist/<int:wishlist_id>/share/', wishlist_share, name='wishlist-share'),
     path('traveler/wishlist/<int:wishlist_id>/convert/', wishlist_convert_to_room, name='wishlist-convert-to-room'),
+    path('traveler/<int:user_id>/wishlist/toggle/', wishlist_toggle, name='wishlist-toggle'),
 
     # ==========================================
     # SECTION 4 & 5: GUIDE & ADMIN ENDPOINTS
@@ -142,4 +150,41 @@ urlpatterns = [
     path('admin/config/system/', admin_system_config, name='admin-system-config'),
     path('admin/config/audit-logs/', admin_audit_logs, name='admin-audit-logs'),
     path('admin/announcements/', admin_send_announcement, name='admin-announcements'),
+    
+    # Public dynamic pages endpoints
+    path('faqs/', faqs_list, name='faqs-list'),
+    path('faqs/categories/', faq_categories_list, name='faq-categories-list'),
+    path('faqs/tutorials/', video_tutorials_list, name='video-tutorials-list'),
+    path('about/', about_page_data, name='about-page-data'),
+    path('about/contact/', submit_about_contact, name='submit-about-contact'),
+    path('home/', home_page_data, name='home-page-data'),
+
+    # Admin dynamic pages control endpoints
+    path('admin/faqs/', admin_faq_management, name='admin-faq-list-create'),
+    path('admin/faqs/<int:faq_id>/', admin_faq_management, name='admin-faq-detail'),
+    path('admin/faqs/categories/', admin_faq_category_management, name='admin-faq-category-list-create'),
+    path('admin/faqs/categories/<int:cat_id>/', admin_faq_category_management, name='admin-faq-category-delete'),
+    path('admin/faqs/tutorials/', admin_tutorial_management, name='admin-tutorial-list-create'),
+    path('admin/faqs/tutorials/<int:tut_id>/', admin_tutorial_management, name='admin-tutorial-detail'),
+    path('admin/about/', admin_about_management, name='admin-about-management'),
+    path('admin/about/contact-messages/', admin_contact_messages, name='admin-contact-messages-list'),
+    path('admin/about/contact-messages/<int:msg_id>/', admin_contact_messages, name='admin-contact-message-delete'),
+    path('admin/home/', admin_home_management, name='admin-home-management'),
+    path('admin/routes/', admin_route_management, name='admin-route-list-create'),
+    path('admin/routes/<int:route_id>/', admin_route_management, name='admin-route-detail'),
+
+    # Traveler Settings & Preferences
+    path('traveler/<int:user_id>/settings/display/', traveler_display_settings, name='traveler-display-settings'),
+    path('traveler/<int:user_id>/settings/account/', traveler_account_settings, name='traveler-account-settings'),
+    path('traveler/<int:user_id>/settings/blocked-users/', traveler_blocked_users, name='traveler-blocked-users'),
+    path('traveler/<int:user_id>/settings/blocked-users/<int:blocked_user_id>/', traveler_unblock_user, name='traveler-unblock-user'),
+    path('traveler/<int:user_id>/settings/request-deletion/', traveler_request_account_deletion, name='traveler-request-deletion'),
+    path('traveler/<int:user_id>/settings/cancel-deletion/', traveler_cancel_account_deletion, name='traveler-cancel-deletion'),
+    path('traveler/<int:user_id>/settings/export-data/', traveler_export_data, name='traveler-export-data'),
+
+    # Traveler Help & Support
+    path('traveler/<int:user_id>/support/tickets/', traveler_support_tickets, name='traveler-support-tickets'),
+    path('traveler/<int:user_id>/support/tickets/<int:ticket_id>/', traveler_support_ticket_detail, name='traveler-support-ticket-detail'),
+    path('traveler/<int:user_id>/support/feedback/', traveler_submit_feedback, name='traveler-submit-feedback'),
+    path('traveler/<int:user_id>/support/bug-report/', traveler_submit_bug_report, name='traveler-submit-bug-report'),
 ]

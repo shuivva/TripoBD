@@ -188,17 +188,27 @@ export default function MapView({ pins }) {
     }
 
     // Load Leaflet JS
+    let cleanupScript = null
+
     if (window.L) {
       initMap(window.L)
     } else {
-      const script = document.createElement('script')
-      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-      script.onload = () => initMap(window.L)
-      document.body.appendChild(script)
+      let script = document.getElementById('leaflet-js')
+      if (!script) {
+        script = document.createElement('script')
+        script.id = 'leaflet-js'
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        document.body.appendChild(script)
+      }
+      const onLoad = () => initMap(window.L)
+      script.addEventListener('load', onLoad)
+      cleanupScript = () => {
+        script.removeEventListener('load', onLoad)
+      }
     }
 
     return () => {
-      // Don't destroy map on re-render — only on full unmount
+      if (cleanupScript) cleanupScript()
     }
   }, [spots])
 

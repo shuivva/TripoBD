@@ -112,6 +112,12 @@ class Destination(models.Model):
     weekly_views = models.PositiveIntegerField(default=0)
     coords_lat = models.FloatField(null=True, blank=True)
     coords_lng = models.FloatField(null=True, blank=True)
+    is_featured = models.BooleanField(default=False)
+    is_spotlight = models.BooleanField(default=False)
+    tagline = models.CharField(max_length=255, blank=True, default='')
+    best_for = models.CharField(max_length=255, blank=True, default='')
+    highlights = models.JSONField(default=list, blank=True)
+    tips = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ['name']
@@ -1006,3 +1012,196 @@ class AdminAuditLog(models.Model):
     class Meta:
         db_table = 'admin_audit_logs'
         ordering = ['-created_at']
+
+
+class FAQCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        db_table = 'faq_categories'
+
+    def __str__(self):
+        return self.name
+
+
+class FAQItem(models.Model):
+    category = models.ForeignKey(FAQCategory, on_delete=models.CASCADE, related_name='items')
+    question = models.CharField(max_length=255)
+    answer = models.TextField()
+
+    class Meta:
+        db_table = 'faq_items'
+
+    def __str__(self):
+        return self.question
+
+
+class VideoTutorial(models.Model):
+    title = models.CharField(max_length=255)
+    duration = models.CharField(max_length=20)
+    thumbnail = models.CharField(max_length=500)
+    description = models.TextField()
+
+    class Meta:
+        db_table = 'video_tutorials'
+
+    def __str__(self):
+        return self.title
+
+
+class LandingStory(models.Model):
+    title = models.CharField(max_length=255)
+    summary = models.TextField()
+    image = models.CharField(max_length=500)
+    location = models.CharField(max_length=150)
+    rating = models.DecimalField(max_digits=3, decimal_places=1, default=4.8)
+
+    class Meta:
+        db_table = 'landing_stories'
+
+    def __str__(self):
+        return self.title
+
+
+class AppStat(models.Model):
+    label = models.CharField(max_length=100, unique=True)
+    value = models.IntegerField()
+
+    class Meta:
+        db_table = 'app_stats'
+
+    def __str__(self):
+        return f"{self.label}: {self.value}"
+
+
+class ValueCard(models.Model):
+    title = models.CharField(max_length=150, unique=True)
+    description = models.TextField()
+
+    class Meta:
+        db_table = 'value_cards'
+
+    def __str__(self):
+        return self.title
+
+
+class AboutFeature(models.Model):
+    icon = models.CharField(max_length=50)
+    title = models.CharField(max_length=150)
+    description = models.TextField()
+
+    class Meta:
+        db_table = 'about_features'
+
+    def __str__(self):
+        return self.title
+
+
+class AboutPainPoint(models.Model):
+    n = models.CharField(max_length=10)
+    icon = models.CharField(max_length=50)
+    title = models.CharField(max_length=150)
+    description = models.TextField()
+
+    class Meta:
+        db_table = 'about_pain_points'
+
+    def __str__(self):
+        return f"{self.n} - {self.title}"
+
+
+class ContactMessage(models.Model):
+    name = models.CharField(max_length=100)
+    email = models.EmailField()
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_read = models.BooleanField(default=False)
+
+    class Meta:
+        db_table = 'contact_messages'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Message from {self.name} ({self.email})"
+
+
+class BlockedUser(models.Model):
+    blocker = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_users')
+    blocked = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blocked_by')
+    blocked_at = models.DateTimeField(auto_now_add=True)
+    reason = models.TextField(blank=True, default='')
+
+    class Meta:
+        db_table = 'blocked_users'
+        unique_together = ('blocker', 'blocked')
+
+    def __str__(self):
+        return f"{self.blocker.username} blocked {self.blocked.username}"
+
+
+class DisplaySettings(models.Model):
+    THEME_CHOICES = [
+        ('light', 'Light'),
+        ('dark', 'Dark'),
+        ('auto', 'Auto'),
+    ]
+    FONT_SIZE_CHOICES = [
+        ('small', 'Small'),
+        ('medium', 'Medium'),
+        ('large', 'Large'),
+    ]
+
+    user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='display_settings')
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='auto')
+    font_size = models.CharField(max_length=10, choices=FONT_SIZE_CHOICES, default='medium')
+    language = models.CharField(max_length=10, choices=[('en', 'English'), ('bn', 'Bangla')], default='en')
+
+    class Meta:
+        db_table = 'display_settings'
+
+
+class AppFeedback(models.Model):
+    RATING_CHOICES = [(i, str(i)) for i in range(1, 6)]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='app_feedbacks')
+    rating = models.PositiveSmallIntegerField(choices=RATING_CHOICES)
+    feedback = models.TextField()
+    category = models.CharField(max_length=100, blank=True, default='general')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'app_feedbacks'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.rating} stars"
+
+
+class BugReport(models.Model):
+    SEVERITY_CHOICES = [
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bug_reports', null=True, blank=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    severity = models.CharField(max_length=20, choices=SEVERITY_CHOICES, default='medium')
+    screenshot = models.ImageField(upload_to='bug_screenshots/', null=True, blank=True)
+    status = models.CharField(max_length=20, default='open', choices=[
+        ('open', 'Open'),
+        ('in_progress', 'In Progress'),
+        ('resolved', 'Resolved'),
+        ('closed', 'Closed'),
+    ])
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'bug_reports'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.severity}"

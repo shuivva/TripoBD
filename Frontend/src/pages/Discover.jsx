@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { categoryQuickLinks, destinations, regionOptions, seasonOptions, durationOptions } from '../data'
 import Map from '../components/Map'
-import { getDestinations, getFilters } from '../apiClient'
+import { getDestinations, getFilters, toggleWishlist } from '../apiClient'
 
 /* ─── per-destination HD images ─── */
 const DEST_IMGS = {
@@ -38,6 +38,8 @@ export default function Discover() {
   const [showMap, setShowMap] = useState(false)
   const [layout, setLayout] = useState('grid')
   const [savedCards, setSavedCards] = useState({})
+  const [savingSlug, setSavingSlug] = useState(null)
+  const [toast, setToast] = useState(null)
   const [items, setItems] = useState(destinations)
   const [options, setOptions] = useState({
     regions: regionOptions,
@@ -47,7 +49,48 @@ export default function Discover() {
     budgets: [],
   })
 
-  const toggleSave = (slug) => setSavedCards((prev) => ({ ...prev, [slug]: !prev[slug] }))
+  // Load existing wishlist from DB on mount so hearts reflect saved state after refresh
+  useEffect(() => {
+    const userId = localStorage.getItem('userId')
+    if (!userId) return
+    fetch(`/api/traveler/${userId}/wishlist/toggle/`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!data || !data.saved_slugs) return
+        const saved = {}
+        data.saved_slugs.forEach(slug => { saved[slug] = true })
+        setSavedCards(saved)
+      })
+      .catch(() => {})
+  }, [])
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3000)
+  }
+
+  const toggleSave = async (slug) => {
+    const userId = localStorage.getItem('userId')
+    if (!userId) {
+      showToast('Please sign in to save destinations', 'error')
+      return
+    }
+    if (savingSlug === slug) return
+    const wasSaved = !!savedCards[slug]
+    setSavedCards(prev => ({ ...prev, [slug]: !wasSaved }))
+    setSavingSlug(slug)
+    try {
+      const result = await toggleWishlist(userId, slug)
+      const nowSaved = result.is_saved ?? !wasSaved
+      setSavedCards(prev => ({ ...prev, [slug]: nowSaved }))
+      showToast(nowSaved ? '\u2764\uFE0F Saved to your wishlist!' : '\uD83D\uDDD1\uFE0F Removed from wishlist')
+    } catch {
+      setSavedCards(prev => ({ ...prev, [slug]: wasSaved }))
+      showToast('Failed to update wishlist. Try again.', 'error')
+    } finally {
+      setSavingSlug(null)
+    }
+  }
 
   useEffect(() => {
     getFilters().then((data) => setOptions(data)).catch(() => {})
@@ -87,6 +130,13 @@ export default function Discover() {
   return (
     <main className="page-shell page-discover">
 
+      {/* ── TOAST ── */}
+      {toast && (
+        <div className={`dv-toast dv-toast-${toast.type}`}>
+          {toast.msg}
+        </div>
+      )}
+
       {/* ── 1. HERO ── */}
       <section className="dv-hero">
         <div className="dv-hero-bg">
@@ -123,8 +173,8 @@ export default function Discover() {
               onChange={(e) => setFilter({ ...filter, region: e.target.value })}
             >
               <option value="">All Regions</option>
-              {(options.regions || []).map((r) => (
-                <option key={r} value={r}>{r}</option>
+              {(options.regions || []).map((r, idx) => (
+                <option key={`${r}-${idx}`} value={r}>{r}</option>
               ))}
             </select>
             <button className="dv-search-btn">Search</button>
@@ -159,8 +209,8 @@ export default function Discover() {
             <label>Region</label>
             <select value={filter.region} onChange={(e) => setFilter({ ...filter, region: e.target.value })}>
               <option value="">All</option>
-              {(options.regions || []).map((r) => (
-                <option key={r} value={r}>{r}</option>
+              {(options.regions || []).map((r, idx) => (
+                <option key={`${r}-${idx}`} value={r}>{r}</option>
               ))}
             </select>
           </div>
@@ -186,8 +236,8 @@ export default function Discover() {
             <label>Duration</label>
             <select value={filter.duration} onChange={(e) => setFilter({ ...filter, duration: e.target.value })}>
               <option value="">Any</option>
-              {(options.durations || []).map((d) => (
-                <option key={d} value={d}>{d}</option>
+              {(options.durations || []).map((d, idx) => (
+                <option key={`${d}-${idx}`} value={d}>{d}</option>
               ))}
             </select>
           </div>
@@ -195,8 +245,8 @@ export default function Discover() {
             <label>Best season</label>
             <select value={filter.season} onChange={(e) => setFilter({ ...filter, season: e.target.value })}>
               <option value="">Any</option>
-              {(options.seasons || []).map((s) => (
-                <option key={s} value={s}>{s}</option>
+              {(options.seasons || []).map((s, idx) => (
+                <option key={`${s}-${idx}`} value={s}>{s}</option>
               ))}
             </select>
           </div>
@@ -336,6 +386,21 @@ export default function Discover() {
 
       {/* ════════════ STYLES ════════════ */}
       <style>{`
+        /* ── TOAST ── */
+        .dv-toast {
+          position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%);
+          padding: .75rem 1.75rem; border-radius: 999px; font-size: .9rem; font-weight: 600;
+          z-index: 9999; box-shadow: 0 8px 32px rgba(0,0,0,.18);
+          animation: dv-toastIn .3s ease; white-space: nowrap;
+        }
+        .dv-toast-success { background: linear-gradient(135deg,#10b981,#059669); color:#fff; }
+        .dv-toast-error   { background: linear-gradient(135deg,#e63946,#c1121f); color:#fff; }
+        @keyframes dv-toastIn {
+          from { opacity:0; transform:translateX(-50%) translateY(16px); }
+          to   { opacity:1; transform:translateX(-50%) translateY(0); }
+        }
+        .dv-card-saving { opacity:.65; cursor:not-allowed; }
+
         /* ── HERO ── */
         .dv-hero {
           position: relative; border-radius: 1.5rem; overflow: hidden;

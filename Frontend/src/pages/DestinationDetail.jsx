@@ -7,6 +7,25 @@ import { destinations } from '../data'
 const accommodationOptions = ['Standard', 'Comfort', 'Premium']
 const DEFAULT_COORDS = [23.7, 90.4]
 
+// Safely converts a string or array field from the API into a real JS array.
+// Backend stores list-like data as TextField (newline or comma separated).
+const toArray = (value, fallback = []) => {
+  if (!value) return fallback
+  if (Array.isArray(value)) return value.length ? value : fallback
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return fallback
+    // Try JSON parse first (in case someone stored '[ "a", "b" ]')
+    if (trimmed.startsWith('[')) {
+      try { return JSON.parse(trimmed) } catch (_) { /* fall through */ }
+    }
+    // Split on newlines first, then commas
+    const sep = trimmed.includes('\n') ? '\n' : ','
+    return trimmed.split(sep).map(s => s.trim()).filter(Boolean)
+  }
+  return fallback
+}
+
 export default function DestinationDetail() {
   const { slug } = useParams()
   const navigate = useNavigate()
@@ -165,7 +184,7 @@ export default function DestinationDetail() {
               <div className="info-item-card">
                 <strong>✦ Key Highlights</strong>
                 <ul>
-                  {(details.highlights || ['Scenic photography spots', 'Vibrant local markets', 'Traditional heritage sights']).map((item) => (
+                  {toArray(details.highlights, ['Scenic photography spots', 'Vibrant local markets', 'Traditional heritage sights']).map((item) => (
                     <li key={item}>• {item}</li>
                   ))}
                 </ul>
@@ -176,12 +195,12 @@ export default function DestinationDetail() {
               </div>
               <div className="info-item-card">
                 <strong>🎒 What to Pack</strong>
-                <p>{(details.pack || ['Comfortable walking shoes', 'Umbrella / Raincoat', 'Sunscreen & Sunglasses', 'Hydration flask']).join(', ')}</p>
+                <p>{toArray(details.pack, ['Comfortable walking shoes', 'Umbrella / Raincoat', 'Sunscreen & Sunglasses', 'Hydration flask']).join(', ')}</p>
               </div>
               <div className="info-item-card">
                 <strong>💡 Local Tips</strong>
                 <ul>
-                  {(details.tips || ['Hire a verified guide for forest safaris', 'Respect local traditions', 'Keep cash handy for local boat operators']).map((tip) => (
+                  {toArray(details.tips, ['Hire a verified guide for forest safaris', 'Respect local traditions', 'Keep cash handy for local boat operators']).map((tip) => (
                     <li key={tip}>• {tip}</li>
                   ))}
                 </ul>
@@ -194,41 +213,105 @@ export default function DestinationDetail() {
             <div className="panel-head">
               <span className="eyebrow">💰 Interactive Calculator</span>
               <h2>Estimate Your Travel Budget</h2>
+              <p className="estimator-subtitle">Adjust the sliders to get a real-time cost breakdown for your trip.</p>
             </div>
-            <div className="estimator-form">
-              <label>
-                Travelers Group Size
-                <input type="number" min="1" max="50" value={groupSize} onChange={(e) => setGroupSize(Math.max(1, Number(e.target.value)))} />
-              </label>
-              <label>
-                Duration (Days)
-                <select value={duration} onChange={(e) => setDuration(Number(e.target.value))}>
-                  <option value={2}>2 Days</option>
-                  <option value={3}>3 Days</option>
-                  <option value={4}>4 Days</option>
-                  <option value={5}>5 Days</option>
-                  <option value={7}>7 Days</option>
-                </select>
-              </label>
-              <label>
-                Hotel Accommodation Class
-                <select value={accommodation} onChange={(e) => setAccommodation(e.target.value)}>
-                  {accommodationOptions.map((option) => (
-                    <option key={option} value={option}>{option} Stay</option>
+
+            {/* Controls */}
+            <div className="calc-controls">
+              {/* Group Size */}
+              <div className="calc-control-row">
+                <div className="calc-label-row">
+                  <span className="calc-label">👥 Group Size</span>
+                  <span className="calc-value-badge">{groupSize} {groupSize === 1 ? 'person' : 'people'}</span>
+                </div>
+                <input
+                  type="range" min="1" max="20" value={groupSize}
+                  onChange={(e) => setGroupSize(Number(e.target.value))}
+                  className="calc-slider"
+                />
+                <div className="calc-slider-ticks">
+                  <span>Solo</span><span>5</span><span>10</span><span>15</span><span>20</span>
+                </div>
+              </div>
+
+              {/* Duration */}
+              <div className="calc-control-row">
+                <div className="calc-label-row">
+                  <span className="calc-label">📅 Duration</span>
+                  <span className="calc-value-badge">{duration} {duration === 1 ? 'day' : 'days'}</span>
+                </div>
+                <input
+                  type="range" min="1" max="10" value={duration}
+                  onChange={(e) => setDuration(Number(e.target.value))}
+                  className="calc-slider"
+                />
+                <div className="calc-slider-ticks">
+                  <span>1d</span><span>3d</span><span>5d</span><span>7d</span><span>10d</span>
+                </div>
+              </div>
+
+              {/* Accommodation Tier */}
+              <div className="calc-control-row">
+                <span className="calc-label">🏨 Accommodation</span>
+                <div className="calc-tier-row">
+                  {[
+                    { key: 'Standard', icon: '🏕️', desc: 'Budget stay' },
+                    { key: 'Comfort',  icon: '🏨', desc: 'Mid-range'   },
+                    { key: 'Premium',  icon: '🏩', desc: 'Luxury stay' },
+                  ].map(tier => (
+                    <button
+                      key={tier.key}
+                      className={`calc-tier-btn${accommodation === tier.key ? ' calc-tier-active' : ''}`}
+                      onClick={() => setAccommodation(tier.key)}
+                    >
+                      <span className="tier-icon">{tier.icon}</span>
+                      <strong>{tier.key}</strong>
+                      <small>{tier.desc}</small>
+                    </button>
                   ))}
-                </select>
-              </label>
-            </div>
-            <div className="estimate-summary">
-              <div className="est-row"><span>Transport Share</span><strong>৳{estimate.transport}</strong></div>
-              <div className="est-row"><span>Food allowance</span><strong>৳{estimate.food}</strong></div>
-              <div className="est-row"><span>Accommodation Stay</span><strong>৳{estimate.stay}</strong></div>
-              <div className="est-row"><span>Sightseeing & Activities</span><strong>৳{estimate.activities}</strong></div>
-              <div className="estimate-total">
-                <span>Estimated Total Cost</span>
-                <strong>৳{estimate.total.toLocaleString()}</strong>
+                </div>
               </div>
             </div>
+
+            {/* Cost Breakdown */}
+            <div className="calc-breakdown">
+              <p className="calc-section-label">Cost per person breakdown</p>
+              {[
+                { label: 'Transport',          icon: '🚌', value: estimate.transport,   color: '#3b82f6' },
+                { label: 'Food & Dining',       icon: '🍛', value: estimate.food,        color: '#f59e0b' },
+                { label: 'Accommodation',       icon: '🏨', value: estimate.stay,        color: '#8b5cf6' },
+                { label: 'Activities & Entry',  icon: '🎟️', value: estimate.activities,  color: '#10b981' },
+              ].map(item => {
+                const pct = Math.round((item.value / (estimate.transport + estimate.food + estimate.stay + estimate.activities)) * 100)
+                return (
+                  <div key={item.label} className="calc-bar-row">
+                    <div className="calc-bar-meta">
+                      <span>{item.icon} {item.label}</span>
+                      <strong>৳{item.value.toLocaleString()}</strong>
+                    </div>
+                    <div className="calc-bar-track">
+                      <div
+                        className="calc-bar-fill"
+                        style={{ width: `${pct}%`, background: item.color }}
+                      />
+                    </div>
+                    <span className="calc-bar-pct">{pct}%</span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Total */}
+            <div className="calc-total-box">
+              <div className="calc-total-left">
+                <span className="calc-total-label">Total for {groupSize} {groupSize === 1 ? 'person' : 'people'} · {duration} {duration === 1 ? 'day' : 'days'}</span>
+                <div className="calc-total-amount">৳{estimate.total.toLocaleString()}</div>
+                <span className="calc-per-person">৳{Math.round(estimate.total / groupSize).toLocaleString()} per person</span>
+              </div>
+              <div className="calc-total-icon">💰</div>
+            </div>
+
+            <p className="calc-disclaimer">* Estimates are approximate and may vary based on season, availability and personal preferences.</p>
           </div>
         </div>
 
@@ -458,65 +541,118 @@ export default function DestinationDetail() {
           line-height: 1.4;
         }
 
-        /* Estimator Panel */
+        /* Estimator Panel — Premium Visual */
         .estimator-panel {
-          background: #f8fafc;
-          border: 1px solid #cbd5e1;
-          border-radius: 20px;
-          padding: 2rem;
-        }
-        .estimator-form {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 1rem;
-          margin: 1.5rem 0;
-        }
-        @media (max-width: 600px) {
-          .estimator-form { grid-template-columns: 1fr; }
-        }
-        .estimator-form label {
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-          font-size: 0.82rem;
-          font-weight: 750;
-          color: #475569;
-        }
-        .estimator-form input, .estimator-form select {
-          padding: 0.65rem;
-          border: 1.5px solid #cbd5e1;
-          border-radius: 8px;
-          font-size: 0.9rem;
-          outline: none;
-        }
-        .estimate-summary {
           background: white;
-          border: 1.5px solid #e2e8f0;
-          border-radius: 14px;
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.65rem;
+          border: 1px solid #e2e8f0;
+          border-radius: 24px;
+          padding: 2.25rem;
+          color: #0f172a;
+          box-shadow: 0 8px 32px rgba(15,23,42,0.08);
         }
-        .est-row {
-          display: flex;
-          justify-content: space-between;
-          font-size: 0.88rem;
-          color: #64748b;
+        .estimator-panel .panel-head h2 { color: #0f172a; }
+        .estimator-panel .eyebrow {
+          background: linear-gradient(90deg,#10b981,#6ee7b7);
+          -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
         }
-        .est-row strong {
-          color: #1e293b;
+        .estimator-subtitle {
+          font-size: .88rem; color: #64748b; margin: .5rem 0 0; font-weight: 400;
         }
-        .estimate-total {
-          border-top: 1.5px dashed #cbd5e1;
-          padding-top: 0.75rem;
-          margin-top: 0.4rem;
-          display: flex;
-          justify-content: space-between;
-          font-size: 1.05rem;
-          font-weight: 850;
-          color: #0d9488;
+
+        /* Controls area */
+        .calc-controls {
+          display: flex; flex-direction: column; gap: 1.5rem;
+          background: #f8fafc; border-radius: 16px;
+          padding: 1.5rem; margin: 1.5rem 0;
+          border: 1px solid #e2e8f0;
         }
+        .calc-control-row { display: flex; flex-direction: column; gap: .5rem; }
+        .calc-label-row { display: flex; justify-content: space-between; align-items: center; }
+        .calc-label { font-size: .85rem; font-weight: 700; color: #334155; }
+        .calc-value-badge {
+          background: linear-gradient(135deg,#10b981,#059669);
+          color: #fff; font-size: .78rem; font-weight: 700;
+          padding: .22rem .75rem; border-radius: 999px;
+        }
+
+        /* Range slider */
+        .calc-slider {
+          -webkit-appearance: none; appearance: none;
+          width: 100%; height: 6px; border-radius: 99px;
+          background: linear-gradient(to right, #10b981 var(--val, 50%), #e2e8f0 var(--val, 50%));
+          outline: none; cursor: pointer;
+        }
+        .calc-slider::-webkit-slider-thumb {
+          -webkit-appearance: none; appearance: none;
+          width: 20px; height: 20px; border-radius: 50%;
+          background: linear-gradient(135deg,#10b981,#6ee7b7);
+          border: 3px solid #fff;
+          box-shadow: 0 2px 10px rgba(16,185,129,.5);
+          cursor: pointer; transition: transform .15s;
+        }
+        .calc-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        .calc-slider-ticks {
+          display: flex; justify-content: space-between;
+          font-size: .65rem; color: #64748b; padding: 0 2px;
+        }
+
+        /* Accommodation tier buttons */
+        .calc-tier-row { display: flex; gap: .75rem; margin-top: .5rem; }
+        .calc-tier-btn {
+          flex: 1; display: flex; flex-direction: column; align-items: center; gap: .2rem;
+          background: white; border: 1.5px solid #e2e8f0;
+          border-radius: 14px; padding: .85rem .5rem; cursor: pointer;
+          transition: all .2s; color: #475569;
+        }
+        .calc-tier-btn:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .calc-tier-active {
+          background: linear-gradient(135deg,rgba(16,185,129,.1),rgba(5,150,105,.05)) !important;
+          border-color: #10b981 !important;
+          color: #059669 !important;
+          box-shadow: 0 0 0 1px #10b981;
+        }
+        .tier-icon { font-size: 1.4rem; }
+        .calc-tier-btn strong { font-size: .82rem; font-weight: 700; }
+        .calc-tier-btn small { font-size: .68rem; color: #64748b; }
+
+        /* Breakdown bars */
+        .calc-breakdown {
+          display: flex; flex-direction: column; gap: .85rem; margin-bottom: 1.5rem;
+        }
+        .calc-section-label {
+          font-size: .75rem; font-weight: 700; color: #64748b;
+          text-transform: uppercase; letter-spacing: .06em; margin-bottom: .25rem;
+        }
+        .calc-bar-row { display: flex; flex-direction: column; gap: .3rem; }
+        .calc-bar-meta {
+          display: flex; justify-content: space-between;
+          font-size: .85rem; color: #475569;
+        }
+        .calc-bar-meta strong { color: #0f172a; font-size: .9rem; }
+        .calc-bar-track {
+          width: 100%; height: 8px; background: #e2e8f0;
+          border-radius: 99px; overflow: hidden;
+        }
+        .calc-bar-fill {
+          height: 100%; border-radius: 99px;
+          transition: width .45s cubic-bezier(.4,0,.2,1);
+        }
+        .calc-bar-pct { font-size: .68rem; color: #64748b; align-self: flex-end; }
+
+        /* Total box */
+        .calc-total-box {
+          display: flex; justify-content: space-between; align-items: center;
+          background: linear-gradient(135deg,#10b981,#059669);
+          border-radius: 18px; padding: 1.5rem 1.75rem;
+          box-shadow: 0 8px 32px rgba(16,185,129,.35);
+          margin-bottom: 1rem;
+        }
+        .calc-total-left { display: flex; flex-direction: column; gap: .3rem; }
+        .calc-total-label { font-size: .82rem; color: rgba(255,255,255,.8); font-weight: 600; }
+        .calc-total-amount { font-size: 2rem; font-weight: 900; color: #fff; line-height: 1.1; }
+        .calc-per-person { font-size: .8rem; color: rgba(255,255,255,.75); }
+        .calc-total-icon { font-size: 3rem; opacity: .5; }
+        .calc-disclaimer { font-size: .72rem; color: #64748b; margin: 0; line-height: 1.5; }
 
         /* Sidebar Panels */
         .detail-sidebar {

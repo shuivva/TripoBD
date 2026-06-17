@@ -5,6 +5,7 @@ import {
   getTourRooms,
   getTourRoomDetail,
   createTourRoom,
+  deleteTourRoom,
   inviteToTourRoom,
   getTourRoomInvites,
   respondToTourRoomInvite,
@@ -218,6 +219,21 @@ export default function TravelerRoom() {
       setErrorMsg(err.message || 'Failed to create tour room.')
     } finally {
       setCreateSubmitting(false)
+    }
+  }
+
+  const handleDeleteRoom = async (e, roomId) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to cancel and delete this Tour Room? This will permanently remove it.')) return
+    setErrorMsg('')
+    setSuccessMsg('')
+    try {
+      await deleteTourRoom(roomId, userId)
+      setSuccessMsg('Tour Room deleted successfully!')
+      loadOverviewData()
+      setTimeout(() => setSuccessMsg(''), 3000)
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to delete tour room.')
     }
   }
 
@@ -728,7 +744,7 @@ export default function TravelerRoom() {
                             <h5>Splits Breakdown:</h5>
                             {exp.participants.map(part => (
                               <div key={part.id} className="share-participant-row">
-                                <span>{part.user.username} (Share: {part.share_amount} ৳)</span>
+                                <span>{part.share_amount} ৳ - {part.user.full_name} (@{part.user.username})</span>
                                 {part.user.id === parseInt(userId) ? (
                                   <label className="toggle-pay-checkbox">
                                     <input
@@ -1242,12 +1258,23 @@ export default function TravelerRoom() {
 
         <style>{`
           .tr-detail-shell {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1.5rem 1rem;
+            margin-top: 60px !important;
+            margin-left: 240px !important;
+            width: calc(100% - 240px) !important;
+            max-width: none !important;
+            padding: 1.5rem !important;
+            min-height: calc(100vh - 60px);
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             gap: 1rem;
+          }
+
+          @media (max-width: 1024px) {
+            .tr-detail-shell {
+              margin-left: 70px !important;
+              width: calc(100% - 70px) !important;
+            }
           }
           .tr-detail-nav {
             display: flex;
@@ -2081,12 +2108,16 @@ export default function TravelerRoom() {
       <section className="rooms-grid-section">
         <h3>Active Tour Rooms</h3>
         {overviewLoading ? (
-          <p className="rooms-loading-msg">Fetching your active Tour Rooms...</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.5rem' }}>
+             <div className="skeleton-loader" style={{height: '250px'}}></div>
+             <div className="skeleton-loader" style={{height: '250px'}}></div>
+             <div className="skeleton-loader" style={{height: '250px'}}></div>
+          </div>
         ) : rooms.length === 0 ? (
-          <div className="rooms-empty-state">
-            <span>🗺️</span>
-            <h4>No Active Tour Rooms Found</h4>
-            <p>Create a new planner room to start coordinating with friends, or accept pending invitations.</p>
+          <div className="empty-state-card" style={{ padding: '4rem 2rem' }}>
+            <span className="empty-state-icon" style={{ fontSize: '3rem' }}>🗺️</span>
+            <h4 className="empty-state-title">No Active Tour Rooms Found</h4>
+            <p className="empty-state-text">Create a new planner room to start coordinating with friends, or accept pending invitations.</p>
             <button className="button button-secondary" onClick={() => setShowCreateModal(true)}>
               Start a New Tour Room
             </button>
@@ -2104,6 +2135,15 @@ export default function TravelerRoom() {
                   <p className="room-destination">📍 {room.destination?.name || 'Group Destination'}</p>
                   <div className="room-card-footer">
                     <span className="view-details-link">Open Planner ➔</span>
+                    {room.owner === parseInt(userId) && (
+                      <button 
+                        className="delete-room-btn" 
+                        onClick={(e) => handleDeleteRoom(e, room.id)}
+                        title="Delete Tour Room"
+                      >
+                        🗑️ Cancel
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2114,79 +2154,90 @@ export default function TravelerRoom() {
 
       {/* Create Room Modal */}
       {showCreateModal && (
-        <div className="crop-modal">
-          <div className="crop-modal-content create-room-modal-card">
-            <h3>Start New Tour Room Planner</h3>
-            <p className="community-muted">Initialize a collaborative space for your travel group.</p>
+        <div className="shared-modal-overlay" onClick={(e) => e.target.classList.contains('shared-modal-overlay') && setShowCreateModal(false)}>
+          <div className="shared-modal-content" style={{maxWidth: '500px'}}>
+            <div className="shared-modal-header">
+              <h2 className="shared-modal-title">Start New Tour Room Planner</h2>
+              <button style={{background: 'transparent', border: 'none', fontSize: '1.25rem', cursor: 'pointer', padding: '0.25rem 0.5rem'}} onClick={() => setShowCreateModal(false)}>✕</button>
+            </div>
             
-            <form onSubmit={handleCreateRoom} className="create-room-form">
-              <label>
-                Tour Room Name
-                <input
-                  type="text"
-                  value={newRoomName}
-                  onChange={e => setNewRoomName(e.target.value)}
-                  placeholder="e.g. Sajek Valley Monsoon Tour..."
-                  required
-                />
-              </label>
-
-              <label>
-                Destination
-                <select value={newRoomDestination} onChange={e => setNewRoomDestination(e.target.value)} required>
-                  <option value="bandarban">Bandarban</option>
-                  <option value="sajek">Sajek Valley</option>
-                  <option value="coxs-bazar">Cox's Bazar</option>
-                  <option value="sundarbans">Sundarbans</option>
-                  <option value="sylhet">Sylhet</option>
-                  <option value="sreemangal">Sreemangal</option>
-                </select>
-              </label>
-
-              <div className="double-inputs">
-                <label>
-                  Start Date
+            <form onSubmit={handleCreateRoom} style={{display: 'flex', flexDirection: 'column'}}>
+              <div className="shared-modal-body">
+                <p className="community-muted" style={{marginTop: 0, marginBottom: '1.5rem'}}>Initialize a collaborative space for your travel group.</p>
+                
+                <div className="form-group">
+                  <label className="form-label required">Tour Room Name</label>
                   <input
-                    type="date"
-                    value={newRoomStartDate}
-                    onChange={e => setNewRoomStartDate(e.target.value)}
+                    className="form-control"
+                    type="text"
+                    value={newRoomName}
+                    onChange={e => setNewRoomName(e.target.value)}
+                    placeholder="e.g. Sajek Valley Monsoon Tour..."
                     required
                   />
-                </label>
-                <label>
-                  End Date
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label required">Destination</label>
+                  <select className="form-control" value={newRoomDestination} onChange={e => setNewRoomDestination(e.target.value)} required>
+                    <option value="bandarban">Bandarban</option>
+                    <option value="sajek">Sajek Valley</option>
+                    <option value="coxs-bazar">Cox's Bazar</option>
+                    <option value="sundarbans">Sundarbans</option>
+                    <option value="sylhet">Sylhet</option>
+                    <option value="sreemangal">Sreemangal</option>
+                  </select>
+                </div>
+
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
+                  <div className="form-group">
+                    <label className="form-label required">Start Date</label>
+                    <input
+                      className="form-control"
+                      type="date"
+                      value={newRoomStartDate}
+                      onChange={e => setNewRoomStartDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label required">End Date</label>
+                    <input
+                      className="form-control"
+                      type="date"
+                      value={newRoomEndDate}
+                      onChange={e => setNewRoomEndDate(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Cover Photo URL (Optional)</label>
                   <input
-                    type="date"
-                    value={newRoomEndDate}
-                    onChange={e => setNewRoomEndDate(e.target.value)}
+                    className="form-control"
+                    type="text"
+                    value={newRoomCover}
+                    onChange={e => setNewRoomCover(e.target.value)}
+                    placeholder="Paste cover image web link..."
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label required">Max Member Count</label>
+                  <input
+                    className="form-control"
+                    type="number"
+                    min="2"
+                    max="100"
+                    value={newRoomMaxMembers}
+                    onChange={e => setNewRoomMaxMembers(parseInt(e.target.value) || 10)}
                     required
                   />
-                </label>
+                </div>
               </div>
 
-              <label>
-                Cover Photo URL (Optional)
-                <input
-                  type="text"
-                  value={newRoomCover}
-                  onChange={e => setNewRoomCover(e.target.value)}
-                  placeholder="Paste cover image web link..."
-                />
-              </label>
-
-              <label>
-                Max Member Count
-                <input
-                  type="number"
-                  min="2"
-                  max="100"
-                  value={newRoomMaxMembers}
-                  onChange={e => setNewRoomMaxMembers(parseInt(e.target.value) || 10)}
-                  required
-                />
-              </label>
-
-              <div className="crop-modal-actions" style={{ marginTop: '1.25rem' }}>
+              <div className="shared-modal-footer">
                 <button type="button" className="button button-secondary" onClick={() => setShowCreateModal(false)} disabled={createSubmitting}>
                   Cancel
                 </button>
@@ -2201,12 +2252,23 @@ export default function TravelerRoom() {
 
       <style>{`
         .tr-overview-shell {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2rem 1rem;
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+          .tr-overview-shell {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
         .tr-overview-header {
           display: flex;
@@ -2373,11 +2435,31 @@ export default function TravelerRoom() {
         .room-card-footer {
           border-top: 1px solid #f1f5f9;
           padding-top: 0.75rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
         }
         .view-details-link {
           font-size: 0.82rem;
           font-weight: 750;
           color: #4f46e5;
+        }
+        .delete-room-btn {
+          background: transparent;
+          border: none;
+          color: #ef4444;
+          font-size: 0.82rem;
+          font-weight: 755;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+          border-radius: 6px;
+          transition: background-color 0.2s, color 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+        .delete-room-btn:hover {
+          background-color: #fee2e2;
         }
 
         /* Create room form inside modal */

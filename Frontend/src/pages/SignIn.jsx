@@ -25,6 +25,9 @@ export default function SignIn() {
       if (res.ok) {
         if (data.user_id) {
           localStorage.setItem('userId', data.user_id)
+          localStorage.setItem('userType', data.user_type || 'traveler')
+          localStorage.setItem('username', data.username || '')
+          localStorage.setItem('isAdmin', data.is_admin ? 'true' : 'false')
         }
         // In a real app you'd store a token; for now just redirect
         if (data.is_admin) {

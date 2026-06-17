@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { featuredDestinations } from '../data'
+import { getDestinations } from '../apiClient'
+import { featuredDestinations as fallbackFeatured } from '../data'
 
 const DESTINATION_GUIDE = {
   sundarbans: {
@@ -42,6 +44,23 @@ const fallbackGuide = {
 }
 
 export default function FeaturedDestinations() {
+  const [destinations, setDestinations] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getDestinations()
+      .then(data => {
+        // filter destinations that are featured
+        const featured = data.filter(d => d.is_featured)
+        setDestinations(featured.length ? featured : fallbackFeatured)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to load featured destinations:", err)
+        setDestinations(fallbackFeatured)
+        setLoading(false)
+      })
+  }, [])
   return (
     <main className="page-shell fd-page">
       <section className="fd-hero">
@@ -58,8 +77,14 @@ export default function FeaturedDestinations() {
 
       <section className="fd-grid-wrap">
         <div className="fd-grid">
-          {featuredDestinations.map((destination) => {
-            const guide = DESTINATION_GUIDE[destination.slug] || fallbackGuide
+          {destinations.map((destination) => {
+            const localGuide = DESTINATION_GUIDE[destination.slug] || fallbackGuide
+            const guide = {
+              tagline: destination.tagline || localGuide.tagline,
+              bestFor: destination.best_for || localGuide.bestFor,
+              highlights: (destination.highlights && destination.highlights.length) ? destination.highlights : localGuide.highlights,
+              tips: destination.tips || localGuide.tips
+            }
 
             return (
               <article key={destination.slug} className="fd-card">

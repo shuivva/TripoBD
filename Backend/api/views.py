@@ -45,6 +45,21 @@ from .models import (
     TripStory,
     Wishlist,
     Accommodation,
+    SystemConfig,
+    FAQCategory,
+    FAQItem,
+    VideoTutorial,
+    LandingStory,
+    AppStat,
+    ValueCard,
+    AboutFeature,
+    AboutPainPoint,
+    ContactMessage,
+    BlockedUser,
+    DisplaySettings,
+    AppFeedback,
+    BugReport,
+    SupportTicket,
 )
 from .dashboard import build_traveler_dashboard
 from .serializers import (
@@ -79,6 +94,20 @@ from .serializers import (
     TourRoomSerializer,
     TripStorySerializer,
     WishlistSerializer,
+    FAQCategorySerializer,
+    FAQItemSerializer,
+    VideoTutorialSerializer,
+    LandingStorySerializer,
+    AppStatSerializer,
+    ValueCardSerializer,
+    AboutFeatureSerializer,
+    AboutPainPointSerializer,
+    ContactMessageSerializer,
+    BlockedUserSerializer,
+    DisplaySettingsSerializer,
+    AppFeedbackSerializer,
+    BugReportSerializer,
+    SupportTicketSerializer,
 )
 
 
@@ -197,13 +226,20 @@ class RouteListAPIView(generics.ListAPIView):
 
 @api_view(['GET'])
 def discover_filters(request):
+    def get_clean_distinct(field):
+        vals = Destination.objects.exclude(**{f"{field}__isnull": True}).values_list(field, flat=True).order_by().distinct()
+        cleaned = {v.strip() for v in vals if v and isinstance(v, str) and v.strip()}
+        if not cleaned and vals:
+            cleaned = {v for v in vals if v is not None}
+        return sorted(list(cleaned))
+
     return Response(
         {
-            'regions': sorted(Destination.objects.values_list('region', flat=True).distinct()),
-            'categories': sorted(Destination.objects.values_list('category', flat=True).distinct()),
-            'seasons': sorted(Destination.objects.values_list('season', flat=True).distinct()),
-            'durations': sorted(Destination.objects.values_list('duration', flat=True).distinct()),
-            'budgets': sorted(Destination.objects.values_list('budget', flat=True).distinct()),
+            'regions': get_clean_distinct('region'),
+            'categories': get_clean_distinct('category'),
+            'seasons': get_clean_distinct('season'),
+            'durations': get_clean_distinct('duration'),
+            'budgets': get_clean_distinct('budget'),
         }
     )
 
@@ -858,7 +894,7 @@ def tourroom_list_create(request, user_id):
     return Response(TourRoomSerializer(rooms, many=True).data)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'DELETE'])
 def tourroom_detail(request, room_id, user_id):
     room = TourRoom.objects.filter(pk=room_id).first()
     if not room:
@@ -868,6 +904,13 @@ def tourroom_detail(request, room_id, user_id):
     membership = TourRoomMembership.objects.filter(room=room, user_id=user_id).first()
     if not membership:
         return Response({'error': 'You are not a member of this Tour Room'}, status=status.HTTP_403_FORBIDDEN)
+
+    if request.method == 'DELETE':
+        # Check if user is owner or room admin
+        if room.owner_id != int(user_id) and not membership.is_admin:
+            return Response({'error': 'Only the owner or an admin can delete this Tour Room'}, status=status.HTTP_403_FORBIDDEN)
+        room.delete()
+        return Response({'message': 'Tour Room deleted successfully'}, status=status.HTTP_200_OK)
 
     # Retrieve all sub-components
     activities = room.activities.all()
@@ -1959,3 +2002,413 @@ def wishlist_convert_to_room(request, wishlist_id):
     item.delete()
 
     return Response({'message': 'Converted to Tour Room successfully!', 'room_id': room.id})
+
+
+@api_view(['GET', 'POST'])
+def wishlist_toggle(request, user_id):
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # GET — return list of saved destination slugs for pre-loading hearts
+    if request.method == 'GET':
+        slugs = list(
+            Wishlist.objects.filter(user_profile=profile)
+            .values_list('destination__slug', flat=True)
+        )
+        return Response({'saved_slugs': slugs}, status=status.HTTP_200_OK)
+
+    # POST — toggle a destination in/out of wishlist
+    destination_slug = request.data.get('destination_slug')
+    if not destination_slug:
+        return Response({'error': 'destination_slug is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    destination = Destination.objects.filter(slug=destination_slug).first()
+    if not destination:
+        return Response({'error': 'Destination not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    wishlist_item = Wishlist.objects.filter(user_profile=profile, destination=destination).first()
+    if wishlist_item:
+        wishlist_item.delete()
+        is_saved = False
+    else:
+        Wishlist.objects.create(user_profile=profile, destination=destination)
+        is_saved = True
+
+    return Response({
+        'is_saved': is_saved,
+        'message': 'Wishlist toggled successfully'
+    }, status=status.HTTP_200_OK)
+
+
+# Public views for new dynamic pages
+@api_view(['GET'])
+def faqs_list(request):
+    category_name = request.query_params.get('category', 'All')
+    search_query = request.query_params.get('search', '')
+    
+    queryset = FAQItem.objects.all()
+    if category_name and category_name != 'All':
+        queryset = queryset.filter(category__name=category_name)
+    if search_query:
+        queryset = queryset.filter(
+            Q(question__icontains=search_query) |
+            Q(answer__icontains=search_query)
+        )
+        
+    return Response(FAQItemSerializer(queryset, many=True).data)
+
+
+@api_view(['GET'])
+def faq_categories_list(request):
+    cats = FAQCategory.objects.all()
+    return Response(FAQCategorySerializer(cats, many=True).data)
+
+
+@api_view(['GET'])
+def video_tutorials_list(request):
+    tuts = VideoTutorial.objects.all()
+    return Response(VideoTutorialSerializer(tuts, many=True).data)
+
+
+@api_view(['GET'])
+def about_page_data(request):
+    features = AboutFeature.objects.all()
+    pain_points = AboutPainPoint.objects.all()
+    
+    # get mission/vision from SystemConfig if exists, else provide defaults
+    cfg = SystemConfig.objects.filter(key='about_mission_vision').first()
+    mv = cfg.value if cfg else {
+        'mission_title': 'Our Mission',
+        'mission_text': 'To provide travelers with authentic, accessible, and comprehensive information about Bangladesh — making trip planning effortless, collaborative, and enjoyable for everyone.',
+        'vision_title': 'Our Vision',
+        'vision_text': 'To become the premier platform for discovering the hidden gems and cultural heritage of Bangladesh, promoting sustainable and responsible tourism for future generations.'
+    }
+    
+    return Response({
+        'mission_vision': mv,
+        'features': AboutFeatureSerializer(features, many=True).data,
+        'pain_points': AboutPainPointSerializer(pain_points, many=True).data
+    })
+
+
+@api_view(['POST'])
+def submit_about_contact(request):
+    serializer = ContactMessageSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'status': 'success', 'message': 'Message sent successfully!'}, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ============================================================
+# TRAVELER SETTINGS & PREFERENCES API ENDPOINTS
+# ============================================================
+
+@api_view(['GET', 'PATCH'])
+def traveler_display_settings(request, user_id):
+    """Get or update display settings (theme, font size, language)"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    display_settings, created = DisplaySettings.objects.get_or_create(
+        user_profile=profile,
+        defaults={'theme': 'auto', 'font_size': 'medium', 'language': 'en'}
+    )
+    
+    if request.method == 'PATCH':
+        serializer = DisplaySettingsSerializer(display_settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    return Response(DisplaySettingsSerializer(display_settings).data)
+
+
+@api_view(['GET', 'PATCH'])
+def traveler_account_settings(request, user_id):
+    """Get or update account settings (privacy, 2FA)"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    account_settings, created = AccountSettings.objects.get_or_create(
+        user_profile=profile,
+        defaults={'profile_visibility': 'public', 'two_factor_enabled': False}
+    )
+    
+    if request.method == 'PATCH':
+        serializer = AccountSettingsSerializer(account_settings, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    return Response(AccountSettingsSerializer(account_settings).data)
+
+
+@api_view(['POST'])
+def traveler_change_password(request, user_id):
+    """Change user password"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+    
+    if not old_password or not new_password:
+        return Response({'error': 'Old password and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user = profile.user
+    if not user.check_password(old_password):
+        return Response({'error': 'Old password is incorrect'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    user.set_password(new_password)
+    user.save()
+    
+    return Response({'message': 'Password changed successfully'})
+
+
+@api_view(['GET', 'POST'])
+def traveler_blocked_users(request, user_id):
+    """Get list of blocked users or block a new user"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if request.method == 'GET':
+        blocked_users = BlockedUser.objects.filter(blocker=profile.user)
+        return Response(BlockedUserSerializer(blocked_users, many=True).data)
+    
+    # Block a user
+    blocked_user_id = request.data.get('blocked_user_id')
+    reason = request.data.get('reason', '')
+    
+    if not blocked_user_id:
+        return Response({'error': 'blocked_user_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        blocked_user = User.objects.get(id=blocked_user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User to block not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    if blocked_user == profile.user:
+        return Response({'error': 'Cannot block yourself'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    blocked, created = BlockedUser.objects.get_or_create(
+        blocker=profile.user,
+        blocked=blocked_user,
+        defaults={'reason': reason}
+    )
+    
+    if not created:
+        return Response({'error': 'User is already blocked'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    return Response(BlockedUserSerializer(blocked).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+def traveler_unblock_user(request, user_id, blocked_user_id):
+    """Unblock a user"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        blocked_user = User.objects.get(id=blocked_user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    blocked = BlockedUser.objects.filter(blocker=profile.user, blocked=blocked_user).first()
+    if not blocked:
+        return Response({'error': 'User is not blocked'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    blocked.delete()
+    return Response({'message': 'User unblocked successfully'})
+
+
+@api_view(['POST'])
+def traveler_request_account_deletion(request, user_id):
+    """Request account deletion with 30-day grace period"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    account_settings, created = AccountSettings.objects.get_or_create(
+        user_profile=profile
+    )
+    
+    if account_settings.deactivation_requested:
+        return Response({'error': 'Account deletion already requested'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    reason = request.data.get('reason', '')
+    account_settings.request_deactivation(reason)
+    
+    return Response({
+        'message': 'Account deletion requested. Your account will be permanently deleted in 30 days.',
+        'deactivation_requested_at': account_settings.deactivation_requested_at
+    })
+
+
+@api_view(['POST'])
+def traveler_cancel_account_deletion(request, user_id):
+    """Cancel account deletion request"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    account_settings = AccountSettings.objects.filter(user_profile=profile).first()
+    if not account_settings or not account_settings.deactivation_requested:
+        return Response({'error': 'No active deletion request found'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    account_settings.deactivation_requested = False
+    account_settings.deactivation_requested_at = None
+    account_settings.deactivation_reason = ''
+    account_settings.save()
+    
+    return Response({'message': 'Account deletion request cancelled'})
+
+
+@api_view(['GET'])
+def traveler_export_data(request, user_id):
+    """Export personal data for GDPR compliance"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    user = profile.user
+    
+    export_data = {
+        'user': {
+            'username': user.username,
+            'email': user.email,
+            'date_joined': user.date_joined.isoformat(),
+        },
+        'profile': {
+            'full_name': profile.full_name,
+            'phone_number': profile.phone_number,
+            'date_of_birth': profile.date_of_birth.isoformat() if profile.date_of_birth else None,
+            'gender': profile.gender,
+            'division': profile.division,
+            'district': profile.district,
+            'user_type': profile.user_type,
+        },
+        'travel_stats': {},
+        'wishlist': [],
+        'stories': [],
+        'exported_at': timezone.now().isoformat(),
+    }
+    
+    # Add travel stats if exists
+    if hasattr(profile, 'travel_stats'):
+        export_data['travel_stats'] = {
+            'total_trips_logged': profile.travel_stats.total_trips_logged,
+            'destinations_visited': profile.travel_stats.destinations_visited,
+            'stories_posted': profile.travel_stats.stories_posted,
+            'reviews_written': profile.travel_stats.reviews_written,
+        }
+    
+    # Add wishlist items
+    wishlist_items = Wishlist.objects.filter(user_profile=profile)
+    export_data['wishlist'] = [
+        {'destination': item.destination.name, 'slug': item.destination.slug, 'added_at': item.added_at.isoformat()}
+        for item in wishlist_items
+    ]
+    
+    # Add published stories
+    stories = TripStory.objects.filter(user_profile=profile, status='published')
+    export_data['stories'] = [
+        {'title': story.title, 'destination': story.destination.name, 'published_at': story.published_at.isoformat()}
+        for story in stories
+    ]
+    
+    return Response(export_data)
+
+
+# ============================================================
+# HELP & SUPPORT API ENDPOINTS
+# ============================================================
+
+@api_view(['GET', 'POST'])
+def traveler_support_tickets(request, user_id):
+    """Get support tickets or submit a new one"""
+    try:
+        profile = _get_traveler_profile_or_404(user_id)
+        if not profile:
+            return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        if request.method == 'GET':
+            tickets = SupportTicket.objects.filter(user=profile.user).order_by('-created_at')
+            return Response(SupportTicketSerializer(tickets, many=True).data)
+        
+        # Submit new ticket
+        serializer = SupportTicketSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=profile.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({'error': f'Failed to load support tickets: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+def traveler_support_ticket_detail(request, user_id, ticket_id):
+    """Get details of a specific support ticket"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        ticket = SupportTicket.objects.get(id=ticket_id, user=profile.user)
+    except SupportTicket.DoesNotExist:
+        return Response({'error': 'Support ticket not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    return Response(SupportTicketSerializer(ticket).data)
+
+
+@api_view(['POST'])
+def traveler_submit_feedback(request, user_id):
+    """Submit app feedback/rating"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = AppFeedbackSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(user=profile.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def traveler_submit_bug_report(request, user_id):
+    """Submit a bug report"""
+    profile = _get_traveler_profile_or_404(user_id)
+    if not profile:
+        return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
+    
+    serializer = BugReportSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(user=profile.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def home_page_data(request):
+    stats = AppStat.objects.all()
+    cards = ValueCard.objects.all()
+    stories = LandingStory.objects.all()
+    featured = Destination.objects.filter(is_featured=True)
+    spotlight = Destination.objects.filter(is_spotlight=True).first()
+    
+    return Response({
+        'stats': AppStatSerializer(stats, many=True).data,
+        'value_cards': ValueCardSerializer(cards, many=True).data,
+        'landing_stories': LandingStorySerializer(stories, many=True).data,
+        'featured_destinations': DestinationListSerializer(featured, many=True).data,
+        'spotlight_destination': DestinationDetailSerializer(spotlight).data if spotlight else None
+    })

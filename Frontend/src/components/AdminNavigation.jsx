@@ -11,17 +11,27 @@ export default function AdminNavigation() {
     { label: '💬 Support & Complaints', to: '/admin/support' },
     { label: '📢 Announcements', to: '/admin/notifications' },
     { label: '📈 Reports', to: '/admin/reports' },
-    { label: '📁 Logs', to: '/admin/logs' },
+    { label: '📋 Logs', to: '/admin/logs' },
+    { label: '🏠 Home Manager', to: '/admin/home' },
+    { label: '❓ FAQ Manager', to: '/admin/faq' },
+    { label: 'ℹ️ About Manager', to: '/admin/about' },
+    { label: '🚌 Route Manager', to: '/admin/routes' },
   ]
 
   const handleLogout = () => {
     fetch('http://localhost:8000/api/auth/logout/', { method: 'POST' })
       .then(() => {
         localStorage.removeItem('userId')
+        localStorage.removeItem('userType')
+        localStorage.removeItem('username')
+        localStorage.removeItem('isAdmin')
         window.location.href = '/'
       })
       .catch(() => {
         localStorage.removeItem('userId')
+        localStorage.removeItem('userType')
+        localStorage.removeItem('username')
+        localStorage.removeItem('isAdmin')
         window.location.href = '/'
       })
   }
@@ -212,7 +222,11 @@ export default function AdminNavigation() {
         main.admin-reports,
         main.admin-config,
         main.admin-logs,
-        main.admin-profile {
+        main.admin-profile,
+        main.admin-home,
+        main.admin-faq,
+        main.admin-about,
+        main.admin-routes {
           margin-top: 60px !important;
           margin-left: 240px !important;
           width: calc(100% - 240px) !important;
@@ -255,7 +269,11 @@ export default function AdminNavigation() {
           main.admin-reports,
           main.admin-config,
           main.admin-logs,
-          main.admin-profile {
+          main.admin-profile,
+          main.admin-home,
+          main.admin-faq,
+          main.admin-about,
+          main.admin-routes {
             margin-left: 70px !important;
             width: calc(100% - 70px) !important;
           }

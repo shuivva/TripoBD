@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { getTravelerDashboard } from '../apiClient'
+import { getTravelerDashboard, createTourRoom, getDestinations, sendGeminiMessage } from '../apiClient'
 
 const quickActions = [
   { icon: '🧭', label: 'Explore Destinations', color: 'from-blue-500 to-cyan-400', to: '/discover' },
-  { icon: '📅', label: 'Plan a Trip', color: 'from-purple-500 to-pink-400', to: '/discover' },
-  { icon: '👥', label: 'Join a Group', color: 'from-green-500 to-emerald-400', to: '/traveler/community?tab=browse' },
-  { icon: '🤖', label: 'Chat with AI', color: 'from-orange-500 to-amber-400', to: '/traveler/ai' },
-  { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-indigo-500 to-violet-400', to: '/traveler/bookings' },
+  { icon: '📅', label: 'Plan a Trip', color: 'from-blue-500 to-cyan-400', to: null, action: 'plan_trip' },
+  { icon: '👥', label: 'Join a Group', color: 'from-blue-500 to-cyan-400', to: '/traveler/community?tab=browse' },
+  { icon: '🤖', label: 'Chat with AI', color: 'from-blue-500 to-cyan-400', to: '/traveler/ai' },
+  { icon: '👨‍🏫', label: 'Book a Guide', color: 'from-blue-500 to-cyan-400', to: '/traveler/bookings' },
 ]
 
 function computeCountdown(targetDate) {
@@ -32,6 +32,25 @@ export default function TravelerDashboard() {
   const [error, setError] = useState('')
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
   const [showChat, setShowChat] = useState(false)
+  const [chatMessages, setChatMessages] = useState([])
+  const [chatInput, setChatInput] = useState('')
+  const [chatLoading, setChatLoading] = useState(false)
+  const chatEndRef = useRef(null)
+
+  // ── Plan a Trip Modal state ──
+  const [showPlanModal, setShowPlanModal] = useState(false)
+  const [planStep, setPlanStep] = useState(1)
+  const [destinations, setDestinations] = useState([])
+  const [planForm, setPlanForm] = useState({
+    name: '',
+    destination: '',
+    start_date: '',
+    end_date: '',
+    max_members: 6,
+    description: '',
+  })
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planError, setPlanError] = useState('')
 
   useEffect(() => {
     if (!userId) {
@@ -65,7 +84,78 @@ export default function TravelerDashboard() {
     return () => clearInterval(timer)
   }, [upcomingTrip?.start_date])
 
-  const openAiChat = () => setShowChat(true)
+  const openAiChat = () => {
+    if (chatMessages.length === 0) {
+      setChatMessages([{ role: 'assistant', content: ai_assistant?.greeting || 'Hi! I\'m your AI travel assistant. Ask me anything about Bangladesh travel!' }])
+    }
+    setShowChat(true)
+  }
+
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || chatLoading) return
+
+    const userMessage = chatInput.trim()
+    setChatInput('')
+    setChatMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setChatLoading(true)
+
+    try {
+      const response = await sendGeminiMessage('dashboard-chat', userMessage, chatMessages)
+      setChatMessages(prev => [...prev, { role: 'assistant', content: response.content }])
+    } catch (err) {
+      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }])
+    } finally {
+      setChatLoading(false)
+    }
+  }
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [chatMessages, showChat])
+
+  // Load destinations for Plan a Trip modal
+  useEffect(() => {
+    getDestinations().then(data => setDestinations(Array.isArray(data) ? data : [])).catch(() => {})
+  }, [])
+
+  const openPlanModal = () => {
+    console.log('Opening Plan a Trip modal')
+    setPlanStep(1)
+    setPlanForm({ name: '', destination: '', start_date: '', end_date: '', max_members: 6, description: '' })
+    setPlanError('')
+    setShowPlanModal(true)
+    console.log('showPlanModal set to true')
+  }
+
+  const handlePlanSubmit = async () => {
+    console.log('Submitting plan form:', planForm)
+    if (!planForm.name.trim() || !planForm.destination || !planForm.start_date || !planForm.end_date) {
+      setPlanError('Please fill in all required fields.')
+      return
+    }
+    setPlanLoading(true)
+    setPlanError('')
+    try {
+      console.log('Calling createTourRoom with userId:', userId)
+      const result = await createTourRoom(userId, {
+        name: planForm.name,
+        destination: planForm.destination,
+        start_date: planForm.start_date,
+        end_date: planForm.end_date,
+        max_members: planForm.max_members,
+        description: planForm.description,
+      })
+      console.log('Tour room created:', result)
+      setShowPlanModal(false)
+      navigate(`/traveler/room?id=${result.id}`)
+    } catch (err) {
+      console.error('Error creating tour room:', err)
+      setPlanError(err.message || 'Failed to create trip. Please try again.')
+    } finally {
+      setPlanLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -171,6 +261,14 @@ export default function TravelerDashboard() {
         <div className="quick-actions-grid">
           {quickActions.map((action) => {
             const className = `quick-action-card bg-gradient-to-r ${action.color}`
+            if (action.action === 'plan_trip') {
+              return (
+                <button key={action.label} type="button" className={className} onClick={openPlanModal}>
+                  <span className="action-icon">{action.icon}</span>
+                  <span className="action-label">{action.label}</span>
+                </button>
+              )
+            }
             if (action.to) {
               return (
                 <Link key={action.label} to={action.to} className={className}>
@@ -358,22 +456,192 @@ export default function TravelerDashboard() {
           <div className="chat-window">
             <div className="chat-header">
               <h4>AI Travel Assistant</h4>
-              <p>Ask me anything about your trips!</p>
+              <p>Ask me anything about Bangladesh travel!</p>
             </div>
             <div className="chat-messages">
-              <div className="message bot">
-                <p>{ai_assistant?.greeting}</p>
-              </div>
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} className={`message ${msg.role === 'user' ? 'user' : 'bot'}`}>
+                  <p>{msg.content}</p>
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="message bot typing">
+                  <p>...</p>
+                </div>
+              )}
+              <div ref={chatEndRef} />
             </div>
             <div className="chat-input">
-              <input type="text" placeholder="Type your message..." />
-              <button type="button">Send</button>
+              <input 
+                type="text" 
+                placeholder="Type your message..." 
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleChatSend()}
+                disabled={chatLoading}
+              />
+              <button 
+                type="button" 
+                onClick={handleChatSend}
+                disabled={chatLoading || !chatInput.trim()}
+              >
+                {chatLoading ? '...' : 'Send'}
+              </button>
             </div>
           </div>
         )}
       </div>
 
+      {/* ── Plan a Trip Modal ── */}
+      {showPlanModal && (
+        <div className="shared-modal-overlay" onClick={(e) => e.target.classList.contains('shared-modal-overlay') && setShowPlanModal(false)}>
+          <div className="shared-modal-content pt-modal">
+            {/* Header */}
+            <div className="shared-modal-header">
+              <div>
+                <span className="pt-eyebrow">✦ Trip Planner</span>
+                <h2 className="shared-modal-title">Plan Your Next Adventure</h2>
+              </div>
+              <button className="pt-close" style={{background: 'transparent', border: 'none', fontSize: '1.25rem', cursor: 'pointer', padding: '0.25rem 0.5rem'}} onClick={() => setShowPlanModal(false)}>✕</button>
+            </div>
+
+            {/* Step indicators */}
+            <div className="pt-steps" style={{padding: '0 1.5rem', marginTop: '1rem'}}>
+              {['Destination', 'Dates & Group', 'Details'].map((s, i) => (
+                <div key={s} className={`pt-step ${planStep > i + 1 ? 'pt-step-done' : ''} ${planStep === i + 1 ? 'pt-step-active' : ''}`}>
+                  <div className="pt-step-num">{planStep > i + 1 ? '✓' : i + 1}</div>
+                  <span>{s}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Step 1 – Destination */}
+            {planStep === 1 && (
+              <div className="shared-modal-body">
+                <p className="pt-step-desc">Where do you want to go?</p>
+                <div className="pt-dest-grid">
+                  {(destinations.length > 0 ? destinations : [
+                    { slug: 'sundarbans', name: 'Sundarbans', region: 'Khulna' },
+                    { slug: 'coxs-bazar', name: "Cox's Bazar", region: 'Chittagong' },
+                    { slug: 'sajek', name: 'Sajek Valley', region: 'Chittagong' },
+                    { slug: 'bandarban', name: 'Bandarban', region: 'Chittagong' },
+                    { slug: 'sreemangal', name: 'Sreemangal', region: 'Sylhet' },
+                    { slug: 'kuakata', name: 'Kuakata', region: 'Barisal' },
+                  ]).slice(0, 8).map(d => (
+                    <button
+                      key={d.slug}
+                      className={`pt-dest-card ${planForm.destination === d.slug ? 'pt-dest-selected' : ''}`}
+                      onClick={() => setPlanForm(f => ({ ...f, destination: d.slug, name: f.name || `${d.name} Trip` }))}
+                    >
+                      <span className="pt-dest-emoji">📍</span>
+                      <strong>{d.name}</strong>
+                      <small>{d.region}</small>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {planStep === 1 && (
+              <div className="shared-modal-footer">
+                <button
+                  className="button button-primary" disabled={!planForm.destination}
+                  onClick={() => setPlanStep(2)}
+                >Next: Set Dates →</button>
+              </div>
+            )}
+
+            {/* Step 2 – Dates & Group */}
+            {planStep === 2 && (
+              <div className="shared-modal-body">
+                <p className="pt-step-desc">When are you going and who's coming?</p>
+                <div className="pt-form-grid">
+                  <div className="form-group">
+                    <label className="form-label">📅 Start Date</label>
+                    <input type="date" className="form-control" value={planForm.start_date}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={e => setPlanForm(f => ({ ...f, start_date: e.target.value }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">📅 End Date</label>
+                    <input type="date" className="form-control" value={planForm.end_date}
+                      min={planForm.start_date || new Date().toISOString().split('T')[0]}
+                      onChange={e => setPlanForm(f => ({ ...f, end_date: e.target.value }))} />
+                  </div>
+                  <div className="form-group" style={{gridColumn: '1 / -1'}}>
+                    <label className="form-label">👥 Max Group Size</label>
+                    <div className="pt-counter">
+                      <button type="button" onClick={() => setPlanForm(f => ({ ...f, max_members: Math.max(2, f.max_members - 1) }))}>−</button>
+                      <span>{planForm.max_members} people</span>
+                      <button type="button" onClick={() => setPlanForm(f => ({ ...f, max_members: Math.min(50, f.max_members + 1) }))}>+</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            {planStep === 2 && (
+              <div className="shared-modal-footer">
+                <button className="button button-secondary" onClick={() => setPlanStep(1)}>← Back</button>
+                <button
+                  className="button button-primary"
+                  disabled={!planForm.start_date || !planForm.end_date}
+                  onClick={() => setPlanStep(3)}
+                >Next: Details →</button>
+              </div>
+            )}
+
+            {/* Step 3 – Details & Create */}
+            {planStep === 3 && (
+              <div className="shared-modal-body">
+                <p className="pt-step-desc">Give your trip a name and optional description.</p>
+                <div className="pt-form-col">
+                  <div className="form-group">
+                    <label className="form-label required">✏️ Trip Name</label>
+                    <input
+                      className="form-control"
+                      type="text" placeholder="e.g. Sundarbans Adventure 2025"
+                      value={planForm.name}
+                      onChange={e => setPlanForm(f => ({ ...f, name: e.target.value }))}
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">📝 Description (optional)</label>
+                    <textarea
+                      className="form-control"
+                      placeholder="What are the main goals or vibes of this trip?"
+                      value={planForm.description}
+                      onChange={e => setPlanForm(f => ({ ...f, description: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                {planError && <div className="profile-alert error" style={{marginTop: '1rem'}}>{planError}</div>}
+              </div>
+            )}
+            {planStep === 3 && (
+              <div className="shared-modal-footer">
+                <button className="button button-secondary" onClick={() => setPlanStep(2)} disabled={planLoading}>← Back</button>
+                <button
+                  className="button button-primary"
+                  onClick={handlePlanSubmit}
+                  disabled={!planForm.name.trim() || planLoading}
+                >
+                  {planLoading ? 'Creating...' : 'Create Trip ✨'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <style>{`
+        main.page-shell {
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
+        }
         .dashboard-status {
           text-align: center;
           padding: 48px 16px;
@@ -408,6 +676,13 @@ export default function TravelerDashboard() {
           padding: 32px;
           margin-bottom: 32px;
           backdrop-filter: blur(10px);
+        }
+
+        @media (max-width: 1024px) {
+          main.page-shell {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
 
         .welcome-content {
@@ -927,6 +1202,11 @@ export default function TravelerDashboard() {
           }
         }
 
+        @keyframes pulse {
+          0%, 100% { opacity: 0.4; }
+          50% { opacity: 1; }
+        }
+
         .chat-header {
           background: linear-gradient(135deg, #5b8cff, #6ee7b7);
           padding: 20px;
@@ -963,9 +1243,20 @@ export default function TravelerDashboard() {
           color: var(--text-h);
         }
 
+        .message.user {
+          background: linear-gradient(135deg, #5b8cff, #6ee7b7);
+          color: white;
+          margin-left: auto;
+        }
+
+        .message.typing p {
+          animation: pulse 1.5s infinite;
+        }
+
         .message p {
           margin: 0;
           font-size: 0.9rem;
+          line-height: 1.4;
         }
 
         .chat-input {
@@ -1017,6 +1308,340 @@ export default function TravelerDashboard() {
             width: 300px;
             right: -20px;
           }
+        }
+
+        /* Plan a Trip Modal Styles */
+        .pt-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          padding: 20px;
+        }
+
+        .pt-modal {
+          background: white;
+          border-radius: 20px;
+          max-width: 600px;
+          width: 100%;
+          max-height: 90vh;
+          overflow-y: auto;
+          box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .pt-modal-head {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 32px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .pt-eyebrow {
+          display: block;
+          font-size: 0.85rem;
+          font-weight: 600;
+          color: var(--accent);
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .pt-modal-title {
+          font-size: 1.8rem;
+          margin: 0;
+          color: var(--text-h);
+        }
+
+        .pt-close {
+          background: none;
+          border: none;
+          font-size: 1.5rem;
+          cursor: pointer;
+          color: var(--text-muted);
+          padding: 8px;
+          border-radius: 50%;
+          transition: background 0.2s;
+        }
+
+        .pt-close:hover {
+          background: rgba(0, 0, 0, 0.05);
+        }
+
+        .pt-steps {
+          display: flex;
+          justify-content: center;
+          gap: 40px;
+          padding: 24px 32px;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .pt-step {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          opacity: 0.5;
+          transition: opacity 0.3s;
+        }
+
+        .pt-step-active {
+          opacity: 1;
+        }
+
+        .pt-step-done {
+          opacity: 1;
+        }
+
+        .pt-step-num {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.08);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: var(--text-muted);
+        }
+
+        .pt-step-active .pt-step-num {
+          background: linear-gradient(135deg, #5b8cff, #6ee7b7);
+          color: white;
+        }
+
+        .pt-step-done .pt-step-num {
+          background: #10b981;
+          color: white;
+        }
+
+        .pt-step span {
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: var(--text-muted);
+        }
+
+        .pt-step-active span {
+          color: var(--text-h);
+        }
+
+        .pt-step-body {
+          padding: 32px;
+        }
+
+        .pt-step-desc {
+          font-size: 1.1rem;
+          color: var(--text-h);
+          margin: 0 0 24px 0;
+          font-weight: 600;
+        }
+
+        .pt-dest-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 12px;
+          margin-bottom: 24px;
+        }
+
+        .pt-dest-card {
+          padding: 16px;
+          border: 2px solid rgba(0, 0, 0, 0.08);
+          border-radius: 12px;
+          background: white;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .pt-dest-card:hover {
+          border-color: var(--accent);
+          transform: translateY(-2px);
+        }
+
+        .pt-dest-selected {
+          border-color: var(--accent);
+          background: rgba(16, 185, 129, 0.05);
+        }
+
+        .pt-dest-emoji {
+          font-size: 1.5rem;
+        }
+
+        .pt-dest-card strong {
+          font-size: 0.95rem;
+          color: var(--text-h);
+          text-align: center;
+        }
+
+        .pt-dest-card small {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+        }
+
+        .pt-form-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .pt-form-col {
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+          margin-bottom: 24px;
+        }
+
+        .pt-field {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .pt-field label {
+          font-weight: 600;
+          font-size: 0.9rem;
+          color: var(--text-h);
+        }
+
+        .pt-field input,
+        .pt-field textarea {
+          padding: 12px 16px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 10px;
+          font-size: 0.95rem;
+          font-family: inherit;
+        }
+
+        .pt-field input:focus,
+        .pt-field textarea:focus {
+          outline: none;
+          border-color: var(--accent);
+        }
+
+        .pt-counter {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 12px;
+          border: 1px solid rgba(0, 0, 0, 0.12);
+          border-radius: 10px;
+        }
+
+        .pt-counter button {
+          width: 32px;
+          height: 32px;
+          border: none;
+          background: rgba(0, 0, 0, 0.05);
+          border-radius: 6px;
+          cursor: pointer;
+          font-size: 1.2rem;
+          font-weight: 600;
+          transition: background 0.2s;
+        }
+
+        .pt-counter button:hover {
+          background: rgba(0, 0, 0, 0.1);
+        }
+
+        .pt-counter span {
+          font-weight: 600;
+          color: var(--text-h);
+        }
+
+        .pt-summary {
+          background: rgba(0, 0, 0, 0.03);
+          border-radius: 12px;
+          padding: 20px;
+          margin-bottom: 24px;
+        }
+
+        .pt-summary-row {
+          display: flex;
+          justify-content: space-between;
+          padding: 8px 0;
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .pt-summary-row:last-child {
+          border-bottom: none;
+        }
+
+        .pt-summary-row span {
+          color: var(--text-muted);
+          font-size: 0.9rem;
+        }
+
+        .pt-summary-row strong {
+          color: var(--text-h);
+          font-weight: 600;
+        }
+
+        .pt-error {
+          background: rgba(239, 68, 68, 0.1);
+          color: #dc2626;
+          padding: 12px 16px;
+          border-radius: 10px;
+          margin-bottom: 20px;
+          font-size: 0.9rem;
+        }
+
+        .pt-btn-row {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+        }
+
+        .pt-back-btn,
+        .pt-next-btn,
+        .pt-create-btn {
+          padding: 12px 24px;
+          border: none;
+          border-radius: 10px;
+          font-weight: 600;
+          font-size: 0.95rem;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .pt-back-btn {
+          background: rgba(0, 0, 0, 0.05);
+          color: var(--text-h);
+        }
+
+        .pt-back-btn:hover {
+          background: rgba(0, 0, 0, 0.1);
+        }
+
+        .pt-next-btn,
+        .pt-create-btn {
+          background: linear-gradient(135deg, #5b8cff, #6ee7b7);
+          color: white;
+        }
+
+        .pt-next-btn:hover,
+        .pt-create-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 8px 20px rgba(91, 140, 255, 0.3);
+        }
+
+        .pt-next-btn:disabled,
+        .pt-create-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+          transform: none;
+          box-shadow: none;
         }
       `}</style>
     </main>

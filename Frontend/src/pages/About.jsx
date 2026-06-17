@@ -1,8 +1,48 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { getAboutPageData, submitAboutContact } from '../apiClient'
+
+const fallbackFeatures = [
+  { icon: '🗺️', title: 'Smart Discovery', desc: 'Curated destinations with local insights, weather forecasts, and budget estimates all in one place.' },
+  { icon: '👥', title: 'Group Trip Planning', desc: 'Invite friends, assign tasks, coordinate bookings, and manage itineraries together seamlessly.' },
+  { icon: '🤖', title: 'AI Travel Assistant', desc: 'Get instant recommendations for routes, local tips, and custom itineraries from our smart AI.' },
+  { icon: '🧭', title: 'Local Guides & Safety', desc: 'Connect with verified local guides and access real-time safety advisories for offbeat paths.' },
+]
+
+const fallbackPainPoints = [
+  { n: '01', icon: '🗺️', title: 'Fragmented Info', desc: 'Difficulty finding reliable and centralized destination information in one place.' },
+  { n: '02', icon: '🚌', title: 'Transit Confusion', desc: 'Lack of clear, up-to-date transportation routes and schedules across districts.' },
+  { n: '03', icon: '🗣️', title: 'Language Barriers', desc: 'Struggling with local dialects when navigating rural and off-the-beaten-path areas.' },
+  { n: '04', icon: '🏨', title: 'Accommodation Issues', desc: 'Hard to find and verify authentic, safe stays outside the major city centres.' },
+  { n: '05', icon: '🔒', title: 'Safety Concerns', desc: 'Uncertainty regarding safe travel times and zones for both local and foreign tourists.' },
+]
 
 export default function About() {
   const [formData, setFormData] = useState({ name: '', email: '', message: '' })
   const [submitStatus, setSubmitStatus] = useState(null)
+
+  const [missionVision, setMissionVision] = useState({
+    mission_title: 'Our Mission',
+    mission_text: 'To provide travelers with authentic, accessible, and comprehensive information about Bangladesh — making trip planning effortless, collaborative, and enjoyable for everyone.',
+    vision_title: 'Our Vision',
+    vision_text: 'To become the premier platform for discovering the hidden gems and cultural heritage of Bangladesh, promoting sustainable and responsible tourism for future generations.'
+  })
+  const [features, setFeatures] = useState([])
+  const [painPoints, setPainPoints] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getAboutPageData()
+      .then(data => {
+        if (data.mission_vision) setMissionVision(data.mission_vision)
+        setFeatures(data.features || [])
+        setPainPoints(data.pain_points || [])
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to load about data:", err)
+        setLoading(false)
+      })
+  }, [])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -11,11 +51,21 @@ export default function About() {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    console.log('Form submitted:', formData)
-    setSubmitStatus('success')
-    setFormData({ name: '', email: '', message: '' })
-    setTimeout(() => setSubmitStatus(null), 3000)
+    submitAboutContact(formData)
+      .then(() => {
+        setSubmitStatus('success')
+        setFormData({ name: '', email: '', message: '' })
+        setTimeout(() => setSubmitStatus(null), 3000)
+      })
+      .catch(err => {
+        console.error("Failed to submit contact message:", err)
+        setSubmitStatus('error')
+        setTimeout(() => setSubmitStatus(null), 3000)
+      })
   }
+
+  const displayFeatures = features.length ? features : fallbackFeatures
+  const displayPainPoints = painPoints.length ? painPoints : fallbackPainPoints
 
   return (
     <main className="page-shell about-page">
@@ -42,14 +92,14 @@ export default function About() {
           <div className="ab-mv-card ab-mv-mission">
             <div className="ab-mv-top-bar" />
             <div className="ab-mv-icon">🎯</div>
-            <h3>Our Mission</h3>
-            <p>To provide travelers with authentic, accessible, and comprehensive information about Bangladesh — making trip planning effortless, collaborative, and enjoyable for everyone.</p>
+            <h3>{missionVision.mission_title}</h3>
+            <p>{missionVision.mission_text}</p>
           </div>
           <div className="ab-mv-card ab-mv-vision">
             <div className="ab-mv-top-bar ab-mv-top-bar-green" />
             <div className="ab-mv-icon">🌿</div>
-            <h3>Our Vision</h3>
-            <p>To become the premier platform for discovering the hidden gems and cultural heritage of Bangladesh, promoting sustainable and responsible tourism for future generations.</p>
+            <h3>{missionVision.vision_title}</h3>
+            <p>{missionVision.vision_text}</p>
           </div>
         </div>
       </section>
@@ -62,16 +112,11 @@ export default function About() {
           <p className="ab-sub">An all-in-one platform designed to solve real travel problems in Bangladesh</p>
         </div>
         <div className="ab-project-grid">
-          {[
-            { icon: '🗺️', title: 'Smart Discovery', desc: 'Curated destinations with local insights, weather forecasts, and budget estimates all in one place.' },
-            { icon: '👥', title: 'Group Trip Planning', desc: 'Invite friends, assign tasks, coordinate bookings, and manage itineraries together seamlessly.' },
-            { icon: '🤖', title: 'AI Travel Assistant', desc: 'Get instant recommendations for routes, local tips, and custom itineraries from our smart AI.' },
-            { icon: '🧭', title: 'Local Guides & Safety', desc: 'Connect with verified local guides and access real-time safety advisories for offbeat paths.' },
-          ].map((item, i) => (
+          {displayFeatures.map((item, i) => (
             <div key={i} className="ab-project-card">
               <div className="ab-project-icon">{item.icon}</div>
               <h4>{item.title}</h4>
-              <p>{item.desc}</p>
+              <p>{item.desc || item.description}</p>
             </div>
           ))}
         </div>
@@ -85,20 +130,17 @@ export default function About() {
           <p className="ab-sub">Addressing the real pain points every traveler faces in Bangladesh</p>
         </div>
         <div className="ab-pain-grid">
-          {[
-            { n: '01', icon: '🗺️', title: 'Fragmented Info', desc: 'Difficulty finding reliable and centralized destination information in one place.' },
-            { n: '02', icon: '🚌', title: 'Transit Confusion', desc: 'Lack of clear, up-to-date transportation routes and schedules across districts.' },
-            { n: '03', icon: '🗣️', title: 'Language Barriers', desc: 'Struggling with local dialects when navigating rural and off-the-beaten-path areas.' },
-            { n: '04', icon: '🏨', title: 'Accommodation Issues', desc: 'Hard to find and verify authentic, safe stays outside the major city centres.' },
-            { n: '05', icon: '🔒', title: 'Safety Concerns', desc: 'Uncertainty regarding safe travel times and zones for both local and foreign tourists.' },
-          ].map((item) => (
-            <div key={item.n} className="ab-pain-card">
-              <span className="ab-pain-num">{item.n}</span>
-              <div className="ab-pain-icon">{item.icon}</div>
-              <h4>{item.title}</h4>
-              <p>{item.desc}</p>
-            </div>
-          ))}
+          {displayPainPoints.map((item, idx) => {
+            const numStr = item.n || String(idx + 1).padStart(2, '0')
+            return (
+              <div key={numStr} className="ab-pain-card">
+                <span className="ab-pain-num">{numStr}</span>
+                <div className="ab-pain-icon">{item.icon}</div>
+                <h4>{item.title}</h4>
+                <p>{item.desc || item.description}</p>
+              </div>
+            )
+          })}
         </div>
       </section>
 
@@ -143,6 +185,11 @@ export default function About() {
             {submitStatus === 'success' && (
               <div className="ab-success-banner">
                 ✅ Thank you! We'll get back to you soon.
+              </div>
+            )}
+            {submitStatus === 'error' && (
+              <div className="ab-success-banner" style={{ background: '#ffeeec', color: '#b91c1c', borderColor: '#fca5a5' }}>
+                ❌ Something went wrong. Please try again.
               </div>
             )}
 

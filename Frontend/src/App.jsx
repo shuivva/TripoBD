@@ -25,6 +25,8 @@ import LocalBookings from './pages/LocalBookings'
 import NotificationsCentre from './pages/NotificationsCentre'
 import ReviewsAndStories from './pages/ReviewsAndStories'
 import AllStories from './pages/AllStories'
+import Settings from './pages/Settings'
+import HelpSupport from './pages/HelpSupport'
 import NotFound from './pages/NotFound'
 
 // Guide portal pages
@@ -47,6 +49,10 @@ import AdminReports from './pages/AdminReports'
 import AdminConfig from './pages/AdminConfig'
 import AdminLogs from './pages/AdminLogs'
 import AdminProfile from './pages/AdminProfile'
+import AdminHome from './pages/AdminHome'
+import AdminFAQ from './pages/AdminFAQ'
+import AdminAbout from './pages/AdminAbout'
+import AdminRoutes from './pages/AdminRoutes'
 
 function App() {
   return (
@@ -76,6 +82,8 @@ function App() {
         <Route path="/traveler/notifications" element={<NotificationsCentre />} />
         <Route path="/traveler/reviews-stories" element={<ReviewsAndStories />} />
         <Route path="/traveler/stories" element={<AllStories />} />
+        <Route path="/traveler/settings" element={<Settings />} />
+        <Route path="/traveler/help" element={<HelpSupport />} />
 
         {/* Guide portal routes */}
         <Route path="/guide/dashboard" element={<GuideDashboard />} />
@@ -97,6 +105,10 @@ function App() {
         <Route path="/admin/config" element={<AdminConfig />} />
         <Route path="/admin/logs" element={<AdminLogs />} />
         <Route path="/admin/profile" element={<AdminProfile />} />
+        <Route path="/admin/home" element={<AdminHome />} />
+        <Route path="/admin/faq" element={<AdminFAQ />} />
+        <Route path="/admin/about" element={<AdminAbout />} />
+        <Route path="/admin/routes" element={<AdminRoutes />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>

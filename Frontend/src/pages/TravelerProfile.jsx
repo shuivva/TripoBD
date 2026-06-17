@@ -383,30 +383,30 @@ export default function TravelerProfile() {
           <section className="profile-section-card">
             <h3 className="section-title"><span className="title-icon">👤</span>Personal Information</h3>
             <form onSubmit={handleProfileSubmit} className="profile-form-grid">
-              <label>
-                Full Name
-                <input type="text" name="full_name" value={profile.full_name || ''} onChange={handleProfileChange} required />
-              </label>
-              <label>
-                Phone Number
-                <input type="text" name="phone_number" value={profile.phone_number || ''} onChange={handleProfileChange} />
-              </label>
-              <label>
-                Date of Birth
-                <input type="date" name="date_of_birth" value={profile.date_of_birth || ''} onChange={handleProfileChange} />
-              </label>
-              <label>
-                Gender
-                <select name="gender" value={profile.gender || ''} onChange={handleProfileChange}>
+              <div className="form-group">
+                <label className="form-label required">Full Name</label>
+                <input className="form-control" type="text" name="full_name" value={profile.full_name || ''} onChange={handleProfileChange} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Phone Number</label>
+                <input className="form-control" type="text" name="phone_number" value={profile.phone_number || ''} onChange={handleProfileChange} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date of Birth</label>
+                <input className="form-control" type="date" name="date_of_birth" value={profile.date_of_birth || ''} onChange={handleProfileChange} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Gender</label>
+                <select className="form-control" name="gender" value={profile.gender || ''} onChange={handleProfileChange}>
                   <option value="">Select Gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
                 </select>
-              </label>
-              <label>
-                Division
-                <select name="division" value={profile.division || ''} onChange={handleProfileChange}>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Division</label>
+                <select className="form-control" name="division" value={profile.division || ''} onChange={handleProfileChange}>
                   <option value="">Select Division</option>
                   <option value="dhaka">Dhaka</option>
                   <option value="chittagong">Chittagong</option>
@@ -417,11 +417,11 @@ export default function TravelerProfile() {
                   <option value="rangpur">Rangpur</option>
                   <option value="mymensingh">Mymensingh</option>
                 </select>
-              </label>
-              <label>
-                District
-                <input type="text" name="district" value={profile.district || ''} onChange={handleProfileChange} />
-              </label>
+              </div>
+              <div className="form-group">
+                <label className="form-label">District</label>
+                <input className="form-control" type="text" name="district" value={profile.district || ''} onChange={handleProfileChange} />
+              </div>
               <button className="button button-primary submit-btn-full" type="submit">Update Personal Info</button>
             </form>
           </section>
@@ -429,45 +429,48 @@ export default function TravelerProfile() {
           <section className="profile-section-card">
             <h3 className="section-title"><span className="title-icon">🧭</span>Travel Preferences</h3>
             <form onSubmit={handlePreferencesSubmit} className="profile-form-grid">
-              <label>
-                Preferred Destinations (comma-separated)
+              <div className="form-group">
+                <label className="form-label">Preferred Destinations (comma-separated)</label>
                 <input
+                  className="form-control"
                   type="text"
                   name="preferred_destinations"
                   placeholder="e.g. Cox's Bazar, Sajek, Sylhet"
                   value={preferences.preferred_destinations || ''}
                   onChange={handlePreferencesChange}
                 />
-              </label>
-              <label>
-                Travel Style
-                <select name="travel_style" value={preferences.travel_style || 'mix'} onChange={handlePreferencesChange}>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Travel Style</label>
+                <select className="form-control" name="travel_style" value={preferences.travel_style || 'mix'} onChange={handlePreferencesChange}>
                   <option value="mix">Mix Style</option>
                   <option value="adventure">Adventure</option>
                   <option value="relaxed">Relaxed / Leisure</option>
                   <option value="cultural">Cultural / Heritage</option>
                   <option value="budget">Backpacker / Budget</option>
                 </select>
-              </label>
-              <label>
-                Preferred Group Size
+              </div>
+              <div className="form-group">
+                <label className="form-label">Preferred Group Size</label>
                 <input
+                  className="form-control"
                   type="number"
                   name="group_size_preference"
                   value={preferences.group_size_preference || 4}
                   onChange={handlePreferencesChange}
                 />
-              </label>
-              <label>
-                Languages Spoken (comma-separated)
+              </div>
+              <div className="form-group">
+                <label className="form-label">Languages Spoken (comma-separated)</label>
                 <input
+                  className="form-control"
                   type="text"
                   name="languages_spoken"
                   placeholder="e.g. Bangla, English"
                   value={preferences.languages_spoken || ''}
                   onChange={handlePreferencesChange}
                 />
-              </label>
+              </div>
               <button className="button button-primary submit-btn-full" type="submit">Save Travel Preferences</button>
             </form>
           </section>
@@ -606,9 +609,10 @@ export default function TravelerProfile() {
           <section className="profile-section-card">
             <h3 className="section-title"><span className="title-icon">⚙️</span>Account & Privacy Settings</h3>
             <form onSubmit={handleAccountSettingsSubmit} className="profile-form-grid">
-              <label>
-                Profile Visibility
+              <div className="form-group">
+                <label className="form-label">Profile Visibility</label>
                 <select
+                  className="form-control"
                   name="profile_visibility"
                   value={accountSettings.profile_visibility || 'public'}
                   onChange={handleAccountSettingsChange}
@@ -617,7 +621,7 @@ export default function TravelerProfile() {
                   <option value="friends_only">Friends Only</option>
                   <option value="private">Private (Only me)</option>
                 </select>
-              </label>
+              </div>
 
               <label className="toggle-checkbox-row">
                 <input
@@ -640,15 +644,16 @@ export default function TravelerProfile() {
                   <span className="toggle-label-text warning-text">Request Account Deactivation</span>
                 </label>
                 {accountSettings.deactivation_requested && (
-                  <label className="reason-label animate-fade-in">
-                    Deactivation Reason
+                  <div className="form-group animate-fade-in" style={{ marginTop: '0.75rem' }}>
+                    <label className="form-label">Deactivation Reason</label>
                     <textarea
+                      className="form-control"
                       name="deactivation_reason"
                       value={accountSettings.deactivation_reason || ''}
                       onChange={handleAccountSettingsChange}
                       placeholder="Why do you want to deactivate your account? (Optional)"
                     />
-                  </label>
+                  </div>
                 )}
               </div>
 
@@ -660,24 +665,26 @@ export default function TravelerProfile() {
           <section className="profile-section-card">
             <h3 className="section-title"><span className="title-icon">🔐</span>Change Account Password</h3>
             <form onSubmit={handlePasswordSubmit} className="profile-form-grid">
-              <label>
-                Current Password
+              <div className="form-group">
+                <label className="form-label required">Current Password</label>
                 <input
+                  className="form-control"
                   type="password"
                   value={passwordForm.current_password}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
                   required
                 />
-              </label>
-              <label>
-                New Password
+              </div>
+              <div className="form-group">
+                <label className="form-label required">New Password</label>
                 <input
+                  className="form-control"
                   type="password"
                   value={passwordForm.new_password}
                   onChange={(e) => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
                   required
                 />
-              </label>
+              </div>
               <button className="button button-primary submit-btn-full" type="submit">Update Password</button>
             </form>
           </section>
@@ -685,13 +692,24 @@ export default function TravelerProfile() {
       </div>
 
       <style>{`
-        .traveler-profile-container {
-          max-width: 1200px;
-          margin: 0 auto;
+        main.traveler-profile-container {
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
-          padding: 2rem 1rem;
+        }
+
+        @media (max-width: 1024px) {
+          main.traveler-profile-container {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
         
         .profile-alert {

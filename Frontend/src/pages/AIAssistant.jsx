@@ -8,13 +8,76 @@ import {
   sendAIMessage,
   sendAIMessageFeedback,
   saveAIItinerary,
+  sendGeminiMessage,
 } from '../apiClient'
 
-const QUICK_PROMPTS = [
-  { label: 'Plan 3-day Bandarban', text: 'Plan a 3-day Bandarban trip for 5 people under 5000 BDT' },
-  { label: 'Sajek Valley Packing', text: 'Give me a packing list for Sajek Valley' },
-  { label: 'Sylhet Shatkora food', text: 'Recommend local foods to eat in Sreemangal and Sylhet' },
-  { label: 'Weather tips Cox\'s', text: 'What are the weather tips and best seasons for Cox\'s Bazar?' },
+const FEATURE_CATEGORIES = [
+  {
+    icon: '🗺️',
+    title: 'Destination Recommendations',
+    description: 'Get top places to visit based on your style',
+    prompts: [
+      'Best places to visit in Bangladesh for nature lovers',
+      'Hidden gems in Bandarban',
+      'Romantic destinations for couples',
+      'Family-friendly spots near Dhaka'
+    ]
+  },
+  {
+    icon: '📅',
+    title: 'Itinerary Generation',
+    description: 'Day-by-day itineraries with timings, activities, and hotels',
+    prompts: [
+      'Plan a 3-day Bandarban trip for 5 people under 5000 BDT',
+      '2-day Cox\'s Bazar weekend itinerary',
+      'Sylhet tea garden tour plan',
+      'Sundarbans wildlife safari itinerary'
+    ]
+  },
+  {
+    icon: '💰',
+    title: 'Budget Estimation',
+    description: 'Plan trips within specific price ranges',
+    prompts: [
+      'Budget breakdown for Sajek Valley trip',
+      'Cheapest way to travel to Saint Martin\'s',
+      'Luxury vs budget options in Rangamati',
+      'Student budget travel guide for Bangladesh'
+    ]
+  },
+  {
+    icon: '🚌',
+    title: 'Transport & Route Advice',
+    description: 'Guide you on buses, trains, launches, and fares',
+    prompts: [
+      'How to reach Sajek from Dhaka',
+      'Best transport options for Cox\'s Bazar',
+      'Train schedule to Sylhet',
+      'Launch services to southern Bangladesh'
+    ]
+  },
+  {
+    icon: '🎒',
+    title: 'Packing Checklists',
+    description: 'Essential items to pack for hills, beaches, or forests',
+    prompts: [
+      'Packing list for Sajek Valley hills',
+      'Beach essentials for Cox\'s Bazar',
+      'Sundarbans forest safari gear',
+      'Monsoon travel packing checklist'
+    ]
+  },
+  {
+    icon: '🌤️',
+    title: 'Weather & Local Food',
+    description: 'What to wear and what regional dishes to eat',
+    prompts: [
+      'Best season to visit Bandarban',
+      'Must-try foods in Sylhet',
+      'Weather tips for hill tract visits',
+      'Local delicacies of Chittagong region'
+    ]
+  }
 ]
 
 export default function AIAssistant() {
@@ -29,6 +92,7 @@ export default function AIAssistant() {
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [submittingMsg, setSubmittingMsg] = useState(false)
   const [error, setError] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState(null)
   
   // Save itinerary state
   const [savingItineraryId, setSavingItineraryId] = useState(null)
@@ -38,6 +102,7 @@ export default function AIAssistant() {
   const [selectedItineraryMsg, setSelectedItineraryMsg] = useState(null)
 
   const messagesEndRef = useRef(null)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
 
   // Auto-scroll chat
   const scrollToBottom = () => {
@@ -45,8 +110,17 @@ export default function AIAssistant() {
   }
 
   useEffect(() => {
-    scrollToBottom()
+    if (!isInitialLoad) {
+      scrollToBottom()
+    }
   }, [messages, submittingMsg])
+
+  // Reset initial load flag after messages are loaded
+  useEffect(() => {
+    if (messages.length > 0 && isInitialLoad) {
+      setIsInitialLoad(false)
+    }
+  }, [messages, isInitialLoad])
 
   // Load sessions
   const loadSessions = async () => {
@@ -125,11 +199,20 @@ export default function AIAssistant() {
     setMessages(prev => [...prev, tempUserMsg])
 
     try {
-      const responseMsg = await sendAIMessage(activeSessionId, promptText)
-      setMessages(prev => [...prev.filter(m => m.id !== tempUserMsg.id), tempUserMsg, responseMsg])
+      // Use Gemini API directly for real-time AI responses
+      const responseMsg = await sendGeminiMessage(activeSessionId, promptText, messages)
+      const aiMessage = { 
+        id: Date.now() + 1, 
+        role: 'assistant', 
+        content: responseMsg.content, 
+        created_at: responseMsg.created_at 
+      }
+      setMessages(prev => [...prev.filter(m => m.id !== tempUserMsg.id), tempUserMsg, aiMessage])
       loadSessions() // reload sidebar to update count
-    } catch {
-      setError('Failed to get response. Please try again.')
+    } catch (err) {
+      setError(err.message || 'Failed to get response. Please try again.')
+      // Remove the optimistic user message on error
+      setMessages(prev => prev.filter(m => m.id !== tempUserMsg.id))
     } finally {
       setSubmittingMsg(false)
     }
@@ -264,15 +347,51 @@ export default function AIAssistant() {
             </div>
           </header>
 
-          {/* Quick Prompts Panel */}
-          {messages.length <= 1 && (
-            <div className="quick-prompts-panel">
-              <h4>Quick Suggested Prompts</h4>
-              <div className="quick-prompts-grid">
-                {QUICK_PROMPTS.map((p) => (
-                  <button key={p.label} className="prompt-suggestion-card" onClick={() => handleSendMessage(p.text)}>
-                    <h5>{p.label}</h5>
-                    <p>"{p.text.substring(0, 45)}..."</p>
+          {/* Feature Categories Panel */}
+          {messages.length <= 1 && !selectedCategory && (
+            <div className="feature-categories-panel">
+              <h4>What can I help you with?</h4>
+              <div className="feature-categories-grid">
+                {FEATURE_CATEGORIES.map((category, index) => (
+                  <button 
+                    key={index} 
+                    className="feature-category-card"
+                    onClick={() => setSelectedCategory(category)}
+                  >
+                    <span className="category-icon">{category.icon}</span>
+                    <h5>{category.title}</h5>
+                    <p>{category.description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Contextual Prompts Panel */}
+          {selectedCategory && messages.length <= 1 && (
+            <div className="contextual-prompts-panel">
+              <button className="back-to-categories" onClick={() => setSelectedCategory(null)}>
+                ← Back to all features
+              </button>
+              <div className="selected-category-header">
+                <span className="category-icon-large">{selectedCategory.icon}</span>
+                <div>
+                  <h4>{selectedCategory.title}</h4>
+                  <p>{selectedCategory.description}</p>
+                </div>
+              </div>
+              <div className="contextual-prompts-grid">
+                {selectedCategory.prompts.map((prompt, index) => (
+                  <button 
+                    key={index} 
+                    className="contextual-prompt-card"
+                    onClick={() => {
+                      handleSendMessage(prompt)
+                      setSelectedCategory(null)
+                    }}
+                  >
+                    <p>"{prompt}"</p>
+                    <span className="prompt-arrow">→</span>
                   </button>
                 ))}
               </div>
@@ -400,12 +519,22 @@ export default function AIAssistant() {
 
       <style>{`
         .ai-assistant-shell {
-          height: calc(100vh - 100px);
-          max-width: 1200px;
-          margin: 0 auto;
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 1.5rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
-          padding: 1.5rem 1rem;
+        }
+
+        @media (max-width: 1024px) {
+          .ai-assistant-shell {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
 
         .ai-layout-container {
@@ -416,7 +545,7 @@ export default function AIAssistant() {
           overflow: hidden;
           box-shadow: 0 10px 40px rgba(15, 23, 42, 0.08);
           border: 1px solid #e2e8f0;
-          flex: 1;
+          min-height: 700px;
         }
 
         /* Sidebar */
@@ -537,7 +666,7 @@ export default function AIAssistant() {
         .ai-chat-main {
           display: flex;
           flex-direction: column;
-          flex: 1;
+          min-height: 700px;
           background: white;
         }
         .ai-chat-header {
@@ -577,50 +706,152 @@ export default function AIAssistant() {
           animation: pulse 1.5s infinite;
         }
 
-        /* Quick prompts suggestions */
-        .quick-prompts-panel {
-          padding: 1.5rem 2rem 0;
+        /* Feature Categories Panel */
+        .feature-categories-panel {
+          padding: 2rem;
           display: flex;
           flex-direction: column;
-          gap: 0.75rem;
+          gap: 1.5rem;
         }
-        .quick-prompts-panel h4 {
+        .feature-categories-panel h4 {
+          margin: 0;
+          font-size: 1.1rem;
+          font-weight: 800;
+          color: #1e293b;
+          text-align: center;
+        }
+        .feature-categories-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1.25rem;
+        }
+        .feature-category-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 2px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 1.5rem;
+          text-align: left;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          position: relative;
+          overflow: hidden;
+        }
+        .feature-category-card::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 4px;
+          background: linear-gradient(90deg, #4f46e5, #818cf8);
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .feature-category-card:hover {
+          transform: translateY(-4px);
+          border-color: #818cf8;
+          box-shadow: 0 12px 24px rgba(79, 70, 229, 0.15);
+        }
+        .feature-category-card:hover::before {
+          opacity: 1;
+        }
+        .category-icon {
+          font-size: 2rem;
+          display: block;
+          margin-bottom: 0.75rem;
+        }
+        .feature-category-card h5 {
+          margin: 0 0 0.5rem;
+          font-size: 0.95rem;
+          font-weight: 800;
+          color: #1e293b;
+          line-height: 1.3;
+        }
+        .feature-category-card p {
+          margin: 0;
+          font-size: 0.8rem;
+          color: #64748b;
+          line-height: 1.4;
+        }
+
+        /* Contextual Prompts Panel */
+        .contextual-prompts-panel {
+          padding: 2rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+        .back-to-categories {
+          background: transparent;
+          border: none;
+          color: #64748b;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          padding: 0.5rem 0;
+          transition: color 0.2s;
+          text-align: left;
+        }
+        .back-to-categories:hover {
+          color: #4f46e5;
+        }
+        .selected-category-header {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 1.5rem;
+          background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+          border-radius: 16px;
+          border: 2px solid #bae6fd;
+        }
+        .category-icon-large {
+          font-size: 3rem;
+        }
+        .selected-category-header h4 {
+          margin: 0 0 0.25rem;
+          font-size: 1.25rem;
+          font-weight: 800;
+          color: #0c4a6e;
+        }
+        .selected-category-header p {
           margin: 0;
           font-size: 0.9rem;
-          font-weight: 750;
-          color: #475569;
+          color: #0369a1;
         }
-        .quick-prompts-grid {
+        .contextual-prompts-grid {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
           gap: 1rem;
         }
-        .prompt-suggestion-card {
-          background: #f8fafc;
-          border: 1px solid #e2e8f0;
-          border-radius: 14px;
-          padding: 1rem;
+        .contextual-prompt-card {
+          background: white;
+          border: 2px solid #e2e8f0;
+          border-radius: 16px;
+          padding: 1.25rem;
           text-align: left;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.3s;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
         }
-        .prompt-suggestion-card:hover {
-          transform: translateY(-2px);
-          border-color: #818cf8;
+        .contextual-prompt-card:hover {
+          border-color: #4f46e5;
           background: #f5f3ff;
-          box-shadow: 0 4px 12px rgba(129,140,248,0.1);
+          transform: translateX(4px);
         }
-        .prompt-suggestion-card h5 {
+        .contextual-prompt-card p {
           margin: 0;
           font-size: 0.85rem;
-          font-weight: 750;
-          color: #312e81;
-        }
-        .prompt-suggestion-card p {
-          margin: 0.25rem 0 0;
-          font-size: 0.78rem;
-          color: #64748b;
+          color: #334155;
           font-style: italic;
+          line-height: 1.4;
+        }
+        .prompt-arrow {
+          font-size: 1.25rem;
+          color: #4f46e5;
+          font-weight: 700;
         }
 
         /* Messages scroll area */
@@ -669,50 +900,60 @@ export default function AIAssistant() {
           display: flex;
           gap: 1rem;
           max-width: 85%;
+          animation: slideIn 0.3s ease-out;
         }
         .chat-message-bubble.user {
           align-self: flex-end;
           flex-direction: row-reverse;
         }
         .bubble-avatar {
-          width: 36px;
-          height: 36px;
+          width: 42px;
+          height: 42px;
           border-radius: 50%;
-          background: #f1f5f9;
+          background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 1.25rem;
-          border: 1px solid #cbd5e1;
+          font-size: 1.35rem;
+          border: 2px solid #cbd5e1;
           flex-shrink: 0;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
         }
         .chat-message-bubble.user .bubble-avatar {
-          background: #38bdf8;
+          background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
           color: white;
           border: none;
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
+        .chat-message-bubble.assistant .bubble-avatar {
+          background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+          color: white;
+          border: none;
+          box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
         }
         .bubble-content-wrap {
           display: flex;
           flex-direction: column;
-          gap: 0.5rem;
+          gap: 0.75rem;
         }
         .bubble-body {
-          padding: 1rem 1.25rem;
-          border-radius: 18px;
+          padding: 1.25rem 1.5rem;
+          border-radius: 20px;
           font-size: 0.95rem;
-          line-height: 1.6;
+          line-height: 1.7;
           color: #334155;
-          box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+          box-shadow: 0 4px 16px rgba(0,0,0,0.06);
         }
         .chat-message-bubble.assistant .bubble-body {
-          background: #f8fafc;
-          border: 1.5px solid #e2e8f0;
-          border-top-left-radius: 4px;
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+          border: 2px solid #e2e8f0;
+          border-top-left-radius: 6px;
         }
         .chat-message-bubble.user .bubble-body {
           background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
           color: white;
-          border-top-right-radius: 4px;
+          border-top-right-radius: 6px;
+          box-shadow: 0 4px 16px rgba(79, 70, 229, 0.25);
         }
 
         /* Formatted markdown styles inside bubble */
@@ -886,10 +1127,50 @@ export default function AIAssistant() {
             grid-template-columns: 1fr;
           }
           .ai-sidebar {
-            display: none; /* simple hidden sidebar for mob */
+            display: none;
           }
-          .quick-prompts-grid {
+          .feature-categories-grid {
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+          }
+          .contextual-prompts-grid {
             grid-template-columns: 1fr;
+          }
+          .feature-category-card {
+            padding: 1rem;
+          }
+          .category-icon {
+            font-size: 1.5rem;
+          }
+          .feature-category-card h5 {
+            font-size: 0.85rem;
+          }
+          .feature-category-card p {
+            font-size: 0.75rem;
+          }
+          .chat-message-bubble {
+            max-width: 95%;
+          }
+          .bubble-avatar {
+            width: 36px;
+            height: 36px;
+            font-size: 1.15rem;
+          }
+          .bubble-body {
+            padding: 1rem 1.25rem;
+            font-size: 0.9rem;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .feature-categories-grid {
+            grid-template-columns: 1fr;
+          }
+          .ai-chat-header h2 {
+            font-size: 1rem;
+          }
+          .ai-chat-header p {
+            font-size: 0.75rem;
           }
         }
 
@@ -902,6 +1183,16 @@ export default function AIAssistant() {
         @keyframes bounce {
           0%, 60%, 100% { transform: translateY(0); }
           30% { transform: translateY(-6px); }
+        }
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
         }
       `}</style>
     </main>

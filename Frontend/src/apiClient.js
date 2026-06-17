@@ -1,3 +1,5 @@
+import { GoogleGenerativeAI } from '@google/generative-ai'
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
 function parseApiError(data, fallback = 'Request failed') {
@@ -314,6 +316,15 @@ export async function createTourRoom(userId, payload) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed to create Tour Room')
+  return data
+}
+
+export async function deleteTourRoom(roomId, userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/tourrooms/${roomId}/`, {
+    method: 'DELETE',
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to delete Tour Room')
   return data
 }
 
@@ -692,6 +703,16 @@ export async function convertWishlistToRoom(wishlistId) {
   return res.json()
 }
 
+export async function toggleWishlist(userId, destinationSlug) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/wishlist/toggle/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ destination_slug: destinationSlug }),
+  })
+  if (!res.ok) throw new Error('Failed to toggle wishlist')
+  return res.json()
+}
+
 
 // SECTION 4: GUIDE PORTAL APIs
 export async function getGuideDashboard(userId) {
@@ -916,4 +937,716 @@ export async function sendAdminAnnouncement(adminId, payload) {
   return res.json()
 }
 
+/* ==========================================================
+   DYNAMIC PAGES & CRUD ENDPOINTS CLIENT FUNCTIONS
+   ========================================================== */
 
+// Public views clients
+export async function getHomePageData() {
+  const res = await fetch(`${API_BASE}/home/`)
+  if (!res.ok) throw new Error('Failed to load homepage data')
+  return res.json()
+}
+
+export async function getFaqsList(params = {}) {
+  const query = new URLSearchParams(params).toString()
+  const res = await fetch(`${API_BASE}/faqs/?${query}`)
+  if (!res.ok) throw new Error('Failed to load FAQs')
+  return res.json()
+}
+
+export async function getFaqCategories() {
+  const res = await fetch(`${API_BASE}/faqs/categories/`)
+  if (!res.ok) throw new Error('Failed to load FAQ categories')
+  return res.json()
+}
+
+export async function getVideoTutorials() {
+  const res = await fetch(`${API_BASE}/faqs/tutorials/`)
+  if (!res.ok) throw new Error('Failed to load video tutorials')
+  return res.json()
+}
+
+export async function getAboutPageData() {
+  const res = await fetch(`${API_BASE}/about/`)
+  if (!res.ok) throw new Error('Failed to load about page data')
+  return res.json()
+}
+
+export async function submitAboutContact(payload) {
+  const res = await fetch(`${API_BASE}/about/contact/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to submit message')
+  return res.json()
+}
+
+// Admin CRUD clients
+export async function getAdminFaqs(adminId) {
+  const res = await fetch(`${API_BASE}/admin/faqs/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load admin FAQs')
+  return res.json()
+}
+
+export async function addEditAdminFaq(adminId, method, faqId, payload) {
+  const url = faqId ? `${API_BASE}/admin/faqs/${faqId}/?admin_id=${adminId}` : `${API_BASE}/admin/faqs/?admin_id=${adminId}`
+  const res = await fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to save FAQ')
+  return res.json()
+}
+
+export async function deleteAdminFaq(adminId, faqId) {
+  const res = await fetch(`${API_BASE}/admin/faqs/${faqId}/?admin_id=${adminId}`, {
+    method: 'DELETE'
+  })
+  if (!res.ok) throw new Error('Failed to delete FAQ')
+  return res.json()
+}
+
+export async function getAdminFaqCategories(adminId) {
+  const res = await fetch(`${API_BASE}/admin/faqs/categories/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load categories')
+  return res.json()
+}
+
+export async function addAdminFaqCategory(adminId, payload) {
+  const res = await fetch(`${API_BASE}/admin/faqs/categories/?admin_id=${adminId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to add category')
+  return res.json()
+}
+
+export async function deleteAdminFaqCategory(adminId, catId) {
+  const res = await fetch(`${API_BASE}/admin/faqs/categories/${catId}/?admin_id=${adminId}`, {
+    method: 'DELETE'
+  })
+  if (!res.ok) throw new Error('Failed to delete category')
+  return res.json()
+}
+
+export async function getAdminTutorials(adminId) {
+  const res = await fetch(`${API_BASE}/admin/faqs/tutorials/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load video tutorials')
+  return res.json()
+}
+
+export async function addEditAdminTutorial(adminId, method, tutId, payload) {
+  const url = tutId ? `${API_BASE}/admin/faqs/tutorials/${tutId}/?admin_id=${adminId}` : `${API_BASE}/admin/faqs/tutorials/?admin_id=${adminId}`
+  const res = await fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to save video tutorial')
+  return res.json()
+}
+
+export async function deleteAdminTutorial(adminId, tutId) {
+  const res = await fetch(`${API_BASE}/admin/faqs/tutorials/${tutId}/?admin_id=${adminId}`, {
+    method: 'DELETE'
+  })
+  if (!res.ok) throw new Error('Failed to delete video tutorial')
+  return res.json()
+}
+
+export async function getAdminAboutData(adminId) {
+  const res = await fetch(`${API_BASE}/admin/about/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load about sections data')
+  return res.json()
+}
+
+export async function updateAdminAboutData(adminId, payload) {
+  const res = await fetch(`${API_BASE}/admin/about/?admin_id=${adminId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to save about sections data')
+  return res.json()
+}
+
+export async function getAdminContactMessages(adminId) {
+  const res = await fetch(`${API_BASE}/admin/about/contact-messages/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load contact feedback messages')
+  return res.json()
+}
+
+export async function deleteAdminContactMessage(adminId, msgId) {
+  const res = await fetch(`${API_BASE}/admin/about/contact-messages/${msgId}/?admin_id=${adminId}`, {
+    method: 'DELETE'
+  })
+  if (!res.ok) throw new Error('Failed to delete message')
+  return res.json()
+}
+
+export async function getAdminHomeData(adminId) {
+  const res = await fetch(`${API_BASE}/admin/home/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load home config data')
+  return res.json()
+}
+
+export async function updateAdminHomeData(adminId, payload) {
+  const res = await fetch(`${API_BASE}/admin/home/?admin_id=${adminId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to save home configurations')
+  return res.json()
+}
+
+export async function getAdminRoutes(adminId) {
+  const res = await fetch(`${API_BASE}/admin/routes/?admin_id=${adminId}`)
+  if (!res.ok) throw new Error('Failed to load transport routes')
+  return res.json()
+}
+
+export async function addEditAdminRoute(adminId, method, routeId, payload) {
+  const url = routeId ? `${API_BASE}/admin/routes/${routeId}/?admin_id=${adminId}` : `${API_BASE}/admin/routes/?admin_id=${adminId}`
+  const res = await fetch(url, {
+    method: method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+  if (!res.ok) throw new Error('Failed to save transport route')
+  return res.json()
+}
+
+export async function deleteAdminRoute(adminId, routeId) {
+  const res = await fetch(`${API_BASE}/admin/routes/${routeId}/?admin_id=${adminId}`, {
+    method: 'DELETE'
+  })
+  if (!res.ok) throw new Error('Failed to delete transport route')
+  return res.json()
+}
+
+// ==========================================================
+// MOCK AI TRAVEL ASSISTANT (No API Required)
+// ==========================================================
+
+// Predefined responses for common Bangladesh travel questions
+const MOCK_RESPONSES = {
+  // Destinations
+  'best places': `### Top Bangladesh Destinations 🇧🇩
+
+**Cox's Bazar** - World's longest natural sea beach (120km)
+- Best time: November-March
+- Budget: 2,000-5,000 BDT/day
+
+**Sajek Valley** - Misty hills and sunrise views
+- Best time: October-April
+- Budget: 1,500-3,000 BDT/day
+
+**Sundarbans** - Royal Bengal tigers & mangrove forest
+- Best time: November-March
+- Budget: 3,000-6,000 BDT/day
+
+**Sylhet** - Tea gardens & waterfalls
+- Best time: Year-round
+- Budget: 1,500-4,000 BDT/day`,
+
+  'bandarban': `### Bandarban Travel Guide 🏔️
+
+**Must-Visit:**
+- **Boga Lake** - Highest natural lake in Bangladesh
+- **Nilgiri** - Stunning hilltop views
+- **Keokradong** - Highest peak in Bangladesh
+- **Chimbuk Hill** - Queen of hills
+
+**Transport:** Bus from Dhaka (500-800 BDT, 8-10 hours)
+
+**Budget:** 2,000-4,000 BDT/day including food & stay
+
+**Tips:** Carry warm clothes, book guides in advance`,
+
+  'sajek': `### Sajek Valley Travel Guide 🌄
+
+**Highlights:**
+- Sunrise over clouds
+- Indigenous culture & crafts
+- Trekking trails
+
+**Getting There:** 
+- Dhaka → Khagrachari → Sajek
+- Cost: 800-1,200 BDT
+
+**Budget:** 1,500-3,000 BDT/day
+
+**Best Time:** October-April for clear views`,
+
+  'sylhet': `### Sylhet Tea Gardens & More 🍃
+
+**Must-Visit:**
+- **Sreemangal** - Tea capital (7-color tea garden)
+- **Jaflong** - Stone collection & river views
+- **Madhabkunda** - Beautiful waterfall
+- **Lawachara National Park** - Wildlife sanctuary
+
+**Specialties:** Shatkora (citrus), seven-layer tea
+
+**Budget:** 1,500-4,000 BDT/day`,
+
+  'cox': `### Cox's Bazar Guide 🏖️
+
+**Highlights:**
+- Inani Beach (Coral stones)
+- Himchari (Waterfall and view)
+- Marine Drive (Scenic coastal road)
+
+**Best Time:** November to March
+**Budget:** 2,000-5,000 BDT/day
+**Route:** Direct flights/buses from Dhaka`,
+
+  'saint martin': `### Saint Martin's Island Guide 🌴
+
+**Highlights:**
+- Chera Dwip
+- Snorkeling and coral viewing
+- Fresh seafood (Lobster, Coral fish)
+
+**Best Time:** November to March (ships don't run in monsoon)
+**Budget:** 2,500-5,000 BDT/day
+**Route:** Dhaka -> Teknaf -> Ship to Island`,
+
+  'sundarban': `### Sundarbans Guide 🐅
+
+**Highlights:**
+- Karamjal & Harbaria
+- Hiron Point & Kotka (Deep forest)
+- Mangrove biodiversity & Royal Bengal Tiger
+
+**Best Time:** November to February
+**Budget:** 5,000-15,000 BDT (depends on package)
+**Route:** Khulna or Mongla -> River cruise package`,
+
+  // Itineraries
+  '3-day': `### 3-Day Bangladesh Trip Plan 📅
+
+**Day 1: Dhaka**
+- Historic sites (Lalbagh Fort, Ahsan Manzil)
+- Street food tour
+- Budget: 1,500 BDT
+
+**Day 2: Sreemangal**
+- Tea garden exploration
+- Seven-color tea tasting
+- Budget: 2,500 BDT
+
+**Day 3: Return**
+- Local shopping
+- Departure
+- Budget: 1,000 BDT
+
+**Total Budget:** ~5,000 BDT`,
+
+  'itinerary': `### Sample Itinerary Suggestions
+
+**Weekend Getaway (2 days):**
+- Sreemangal tea gardens
+- Budget: 3,000-4,000 BDT
+
+**Adventure Trip (3 days):**
+- Bandarban hills
+- Budget: 5,000-7,000 BDT
+
+**Beach Vacation (3 days):**
+- Cox's Bazar
+- Budget: 4,000-6,000 BDT
+
+Tell me your destination and duration for a custom plan!`,
+
+  // Budget
+  'budget': `### Bangladesh Travel Budget Guide 💰
+
+**Budget Travel (per day):**
+- Food: 300-500 BDT
+- Transport: 200-400 BDT
+- Accommodation: 500-1,000 BDT
+- **Total: 1,000-2,000 BDT**
+
+**Mid-Range (per day):**
+- Food: 500-800 BDT
+- Transport: 400-600 BDT
+- Accommodation: 1,000-2,000 BDT
+- **Total: 2,000-3,500 BDT**
+
+**Comfort (per day):**
+- Food: 800-1,200 BDT
+- Transport: 600-800 BDT
+- Accommodation: 2,000-4,000 BDT
+- **Total: 3,500-6,000 BDT`,
+
+  'cheap': `### Budget Travel Tips 💡
+
+**Cheapest Destinations:**
+- Sreemangal: 1,500 BDT/day
+- Sylhet city: 1,200 BDT/day
+- Kuakata: 2,000 BDT/day
+
+**Money-Saving Tips:**
+- Use local buses (AC bus: 300-500 BDT)
+- Eat at local restaurants (100-200 BDT/meal)
+- Stay in guesthouses (500-800 BDT/night)
+- Travel in groups for shared costs
+
+**Student Budget:** Under 3,000 BDT for 2-day trip possible!`,
+
+  // Transport
+  'transport': `### Bangladesh Transport Guide 🚌
+
+**Dhaka to:**
+- **Cox's Bazar:** Bus 600-900 BDT (10-12 hrs)
+- **Sylhet:** Train 200-400 BDT (6-8 hrs)
+- **Chittagong:** Train 150-300 BDT (5-7 hrs)
+- **Sajek:** Bus 800-1,200 BDT (10-12 hrs)
+
+**Options:**
+- **AC Bus:** Comfortable, reliable
+- **Train:** Scenic, budget-friendly
+- **Launch:** For southern routes
+- **Local Bus:** Cheapest option
+
+**Booking:** Shohoz, BD Tickets, or station counters`,
+
+  'bus': `### Bus Travel Information 🚌
+
+**Major Operators:**
+- Green Line (Premium)
+- Shohoz (AC/Non-AC)
+- Hanif (Budget)
+
+**Popular Routes:**
+- Dhaka-Cox's Bazar: 600-900 BDT
+- Dhaka-Sylhet: 400-600 BDT
+- Dhaka-Chittagong: 300-500 BDT
+
+**Tips:**
+- Book in advance for weekends
+- Night buses save accommodation cost
+- AC buses recommended for long trips`,
+
+  // Food
+  'food': `### Bangladesh Food Guide 🍛
+
+**Must-Try Dishes:**
+- **Kacchi Biryani** - Dhaka specialty
+- **Hilsa Fish** - National fish (Ilish)
+- **Pitha** - Traditional rice cakes
+- **Bhuna Khichuri** - Spiced rice & lentils
+
+**Regional Specialties:**
+- **Sylhet:** Shatkora curry, seven-layer tea
+- **Chittagong:** Mezban beef, shutki
+- **Cox's Bazar:** Fresh seafood, dried fish
+
+**Street Food:** Fuchka, Jhal Muri, Velpuri (50-100 BDT)`,
+
+  'sylhet food': `### Sylhet Food Specialties 🍃
+
+**Must-Try:**
+- **Shatkora Curry** - Unique citrus duck/beef curry
+- **Seven-Layer Tea** - Sreemangal specialty
+- **Pitha** - Traditional rice cakes
+- **Fresh River Fish** - Local catch
+
+**Where to Eat:**
+- Panshi Restaurant (Sreemangal)
+- Local tea garden cafes
+- Street food in Sylhet city
+
+**Budget:** 200-500 BDT per meal`,
+
+  // Weather
+  'weather': `### Bangladesh Weather Guide 🌤️
+
+**Best Travel Seasons:**
+
+**Winter (October-March):**
+- Temperature: 15-25°C
+- Perfect for: Hill tracts, beaches
+- Pack: Light warm clothes
+
+**Summer (April-June):**
+- Temperature: 30-38°C
+- Perfect for: Sundarbans, waterfalls
+- Pack: Light cotton, rain gear
+
+**Monsoon (July-September):**
+- Heavy rainfall
+- Perfect for: Tea gardens, green landscapes
+- Pack: Waterproof gear, umbrella`,
+
+  'packing': `### Bangladesh Packing Checklist 🎒
+
+**Essentials:**
+- Passport/ID
+- Cash (BDT)
+- Power bank
+- First aid kit
+
+**For Hills (Bandarban/Sajek):**
+- Warm sweater/jacket
+- Comfortable walking shoes
+- Rain jacket
+- Sunscreen
+
+**For Beaches (Cox's Bazar):**
+- Swimwear
+- Sunscreen
+- Hat/sunglasses
+- Flip-flops
+
+**For Forests (Sundarbans):**
+- Insect repellent
+- Long sleeves/pants
+- Waterproof boots
+- Flashlight`,
+
+  // General
+  'help': `### How Can I Help You? 🤖
+
+I can assist with:
+
+**🗺️ Destinations:** Best places to visit in Bangladesh
+**📅 Itineraries:** Day-by-day trip planning
+**💰 Budget:** Cost estimates and money-saving tips
+**🚌 Transport:** Bus, train, and travel routes
+**🍛 Food:** Local cuisine and restaurant recommendations
+**🌤️ Weather:** Best time to visit destinations
+**🎒 Packing:** What to bring for different trips
+
+Just ask me anything about Bangladesh travel!`,
+
+  'hello': `### Hello! 👋
+
+I'm your Bangladesh travel assistant for TripoBD!
+
+I can help you plan trips, discover destinations, get weather information, and learn about local culture, food, and attractions in Bangladesh.
+
+Popular destinations I can help with:
+- Cox's Bazar 🏖️
+- Sajek Valley 🏔️
+- Bandarban ⛰️
+- Sylhet 🍃
+- Sundarbans 🐅
+
+What would you like to know about Bangladesh travel?`
+}
+
+// Simple keyword matching for mock responses
+function getMockResponse(userMessage) {
+  const message = userMessage.toLowerCase()
+  
+  // Check for keywords and return matching response
+  if (message.includes('hello') || message.includes('hi') || message.includes('hey')) {
+    return MOCK_RESPONSES['hello']
+  }
+  if (message.includes('help') || message.includes('assist')) {
+    return MOCK_RESPONSES['help']
+  }
+  if (message.includes('bandarban')) {
+    return MOCK_RESPONSES['bandarban']
+  }
+  if (message.includes('sajek')) {
+    return MOCK_RESPONSES['sajek']
+  }
+  if (message.includes('sylhet')) {
+    return MOCK_RESPONSES['sylhet']
+  }
+  if (message.includes('best place') || message.includes('destination') || message.includes('visit') || message.includes('where to go')) {
+    return MOCK_RESPONSES['best places']
+  }
+  if (message.includes('cox')) {
+    return MOCK_RESPONSES['cox']
+  }
+  if (message.includes('saint martin') || message.includes('st. martin') || message.includes('st martin')) {
+    return MOCK_RESPONSES['saint martin']
+  }
+  if (message.includes('sundarban')) {
+    return MOCK_RESPONSES['sundarban']
+  }
+  if (message.includes('3 day') || message.includes('3-day') || message.includes('itinerary')) {
+    return MOCK_RESPONSES['3-day']
+  }
+  if (message.includes('budget') || message.includes('cost') || message.includes('price') || message.includes('cheap')) {
+    return MOCK_RESPONSES['budget']
+  }
+  if (message.includes('transport') || message.includes('bus') || message.includes('train') || message.includes('how to reach')) {
+    return MOCK_RESPONSES['transport']
+  }
+  if (message.includes('food') || message.includes('eat') || message.includes('restaurant')) {
+    return MOCK_RESPONSES['food']
+  }
+  if (message.includes('weather') || message.includes('season') || message.includes('best time')) {
+    return MOCK_RESPONSES['weather']
+  }
+  if (message.includes('pack') || message.includes('what to bring') || message.includes('packing')) {
+    return MOCK_RESPONSES['packing']
+  }
+  
+  // Default response
+  return `### I'd love to help! 🤖
+
+I can assist with Bangladesh travel planning including:
+- **Destinations:** Cox's Bazar, Sajek, Bandarban, Sylhet, Sundarbans
+- **Itineraries:** Day-by-day trip plans
+- **Budget:** Cost estimates and tips
+- **Transport:** Bus, train, and route information
+- **Food:** Local cuisine recommendations
+- **Weather:** Best travel seasons
+- **Packing:** What to bring
+
+Try asking: "Plan a 3-day Bandarban trip" or "What's the budget for Sajek?"`
+}
+
+export async function sendGeminiMessage(sessionId, userMessage, history = []) {
+  // Simulate network delay for realistic feel
+  await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 500))
+  
+  const response = getMockResponse(userMessage)
+  
+  return {
+    role: 'assistant',
+    content: response,
+    created_at: new Date().toISOString()
+  }
+}
+
+export async function sendGeminiMessageSimple(userMessage) {
+  await new Promise(resolve => setTimeout(resolve, 300))
+  return getMockResponse(userMessage)
+}
+
+// ============================================================
+// TRAVELER SETTINGS & PREFERENCES API CLIENT FUNCTIONS
+// ============================================================
+
+export async function getTravelerDisplaySettings(userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/display/`)
+  if (!res.ok) throw new Error('Failed to load display settings')
+  return res.json()
+}
+
+export async function updateTravelerDisplaySettings(userId, payload) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/display/`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error('Failed to update display settings')
+  return res.json()
+}
+
+export async function getTravelerAccountSettings(userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/account/`)
+  if (!res.ok) throw new Error('Failed to load account settings')
+  return res.json()
+}
+
+export async function getTravelerBlockedUsers(userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/blocked-users/`)
+  if (!res.ok) throw new Error('Failed to load blocked users')
+  return res.json()
+}
+
+export async function blockTravelerUser(userId, payload) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/blocked-users/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to block user')
+  return data
+}
+
+export async function unblockTravelerUser(userId, blockedUserId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/blocked-users/${blockedUserId}/`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) throw new Error('Failed to unblock user')
+  return res.json()
+}
+
+export async function requestTravelerAccountDeletion(userId, payload) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/request-deletion/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to request account deletion')
+  return data
+}
+
+export async function cancelTravelerAccountDeletion(userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/cancel-deletion/`, {
+    method: 'POST',
+  })
+  if (!res.ok) throw new Error('Failed to cancel account deletion')
+  return res.json()
+}
+
+export async function exportTravelerData(userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/settings/export-data/`)
+  if (!res.ok) throw new Error('Failed to export data')
+  return res.json()
+}
+
+// ============================================================
+// TRAVELER HELP & SUPPORT API CLIENT FUNCTIONS
+// ============================================================
+
+export async function getTravelerSupportTickets(userId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/support/tickets/`)
+  if (!res.ok) throw new Error('Failed to load support tickets')
+  return res.json()
+}
+
+export async function submitTravelerSupportTicket(userId, payload) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/support/tickets/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to submit support ticket')
+  return data
+}
+
+export async function getTravelerSupportTicketDetail(userId, ticketId) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/support/tickets/${ticketId}/`)
+  if (!res.ok) throw new Error('Failed to load support ticket detail')
+  return res.json()
+}
+
+export async function submitTravelerFeedback(userId, payload) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/support/feedback/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to submit feedback')
+  return data
+}
+
+export async function submitTravelerBugReport(userId, payload) {
+  const res = await fetch(`${API_BASE}/traveler/${userId}/support/bug-report/`, {
+    method: 'POST',
+    headers: payload instanceof FormData ? {} : { 'Content-Type': 'application/json' },
+    body: payload instanceof FormData ? payload : JSON.stringify(payload),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to submit bug report')
+  return data
+}

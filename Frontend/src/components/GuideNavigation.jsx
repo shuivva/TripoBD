@@ -13,10 +13,16 @@ export default function GuideNavigation() {
     fetch('http://localhost:8000/api/auth/logout/', { method: 'POST' })
       .then(() => {
         localStorage.removeItem('userId')
+        localStorage.removeItem('userType')
+        localStorage.removeItem('username')
+        localStorage.removeItem('isAdmin')
         window.location.href = '/'
       })
       .catch(() => {
         localStorage.removeItem('userId')
+        localStorage.removeItem('userType')
+        localStorage.removeItem('username')
+        localStorage.removeItem('isAdmin')
         window.location.href = '/'
       })
   }

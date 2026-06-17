@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   getServiceProviders,
   getServiceProviderDetail,
@@ -11,10 +11,26 @@ import {
 
 export default function LocalBookings() {
   const navigate = useNavigate()
+  const location = useLocation()
   const userId = localStorage.getItem('userId')
 
   // Tabs: 'browse' | 'my-bookings'
   const [activeTab, setActiveTab] = useState('browse')
+
+  // Transport Route Booking state
+  const [selectedRoute, setSelectedRoute] = useState(location.state?.route || null)
+  const [transportDate, setTransportDate] = useState('')
+  const [transportGroupSize, setTransportGroupSize] = useState(1)
+  const [transportNotes, setTransportNotes] = useState('')
+  const [transportSubmitting, setTransportSubmitting] = useState(false)
+
+  const [localTransportBookings, setLocalTransportBookings] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('localTransportBookings') || '[]')
+    } catch {
+      return []
+    }
+  })
 
   // Browse state
   const [providers, setProviders] = useState([])
@@ -177,6 +193,55 @@ export default function LocalBookings() {
     }
   }
 
+  const handleRequestTransportBooking = (e) => {
+    e.preventDefault()
+    if (!selectedRoute || !transportDate || !userId) return
+    setTransportSubmitting(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const newBooking = {
+        id: `transport-${Date.now()}`,
+        is_transport: true,
+        status: 'confirmed',
+        operator: selectedRoute.operator,
+        mode: selectedRoute.mode,
+        from: selectedRoute.from,
+        to: selectedRoute.to,
+        fare: selectedRoute.fare,
+        start_date: transportDate,
+        group_size: transportGroupSize,
+        notes: transportNotes,
+        agreed_fee: selectedRoute.fare * transportGroupSize,
+        travel_class: selectedRoute.travelClass || selectedRoute.travel_class || 'Standard'
+      }
+
+      const updated = [newBooking, ...localTransportBookings]
+      setLocalTransportBookings(updated)
+      localStorage.setItem('localTransportBookings', JSON.stringify(updated))
+
+      setSuccess(`Transport booking request for ${selectedRoute.operator} submitted successfully!`)
+      setSelectedRoute(null)
+      navigate(location.pathname, { replace: true, state: {} })
+      setActiveTab('my-bookings')
+      setTimeout(() => setSuccess(''), 4000)
+    } catch (err) {
+      setError('Failed to book transport ticket.')
+    } finally {
+      setTransportSubmitting(false)
+    }
+  }
+
+  const handleCancelTransportBooking = (id) => {
+    if (!confirm('Are you sure you want to cancel this transport booking?')) return
+    const updated = localTransportBookings.filter(b => b.id !== id)
+    setLocalTransportBookings(updated)
+    localStorage.setItem('localTransportBookings', JSON.stringify(updated))
+    setSuccess('Transport booking successfully cancelled.')
+    setTimeout(() => setSuccess(''), 3000)
+  }
+
   if (!userId) {
     return (
       <main className="page-shell text-center">
@@ -291,7 +356,7 @@ export default function LocalBookings() {
           <h3>Your Tour Booking Ledger</h3>
           {loadingBookings ? (
             <p className="loading-text">Retrieving booking logs...</p>
-          ) : bookings.length === 0 ? (
+          ) : (localTransportBookings.length === 0 && bookings.length === 0) ? (
             <div className="empty-results-box">
               <span>📅</span>
               <h4>No Active Bookings Scheduled</h4>
@@ -299,62 +364,94 @@ export default function LocalBookings() {
             </div>
           ) : (
             <div className="bookings-table-list">
-              {bookings.map(b => (
-                <div key={b.id} className="booking-log-item-card">
-                  <div className="booking-log-header">
-                    <div>
-                      <h4>Booking with {b.service_provider?.user?.full_name}</h4>
-                      <span className="booking-log-category">{b.service_provider?.service_type_label || b.service_provider?.service_type}</span>
+              {[...localTransportBookings, ...bookings].map(b => {
+                if (b.is_transport) {
+                  return (
+                    <div key={b.id} className="booking-log-item-card" style={{ borderLeft: '4px solid #10b981' }}>
+                      <div className="booking-log-header">
+                        <div>
+                          <h4>🎫 Transport Ticket: {b.operator}</h4>
+                          <span className="booking-log-category">{b.mode} · {b.travel_class}</span>
+                        </div>
+                        <span className="booking-status-badge confirmed" style={{ background: '#d1fae5', color: '#059669' }}>
+                          CONFIRMED
+                        </span>
+                      </div>
+
+                      <div className="booking-log-details" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                        <p>📍 Route: <strong>{b.from} → {b.to}</strong></p>
+                        <p>📅 Travel Date: <strong>{b.start_date}</strong></p>
+                        <p>👥 Tickets: <strong>{b.group_size} travelers</strong></p>
+                        <p>💵 Total Cost: <strong>৳{b.agreed_fee.toLocaleString()}</strong></p>
+                        {b.notes && <p style={{ gridColumn: '1 / -1' }}>📝 Special Requests: <em>{b.notes}</em></p>}
+                      </div>
+
+                      <div className="booking-log-actions">
+                        <button className="button leave-room-danger-btn" onClick={() => handleCancelTransportBooking(b.id)}>
+                          Cancel Ticket
+                        </button>
+                      </div>
                     </div>
-                    <span className={`booking-status-badge ${b.status}`}>
-                      {b.status.toUpperCase()}
-                    </span>
-                  </div>
+                  )
+                }
 
-                  <div className="booking-log-details">
-                    <p>📅 Dates: <strong>{b.start_date} to {b.end_date}</strong></p>
-                    <p>👥 Group Size: <strong>{b.group_size} travelers</strong></p>
-                    {b.specific_requirements && <p>📝 Requirements: <em>{b.specific_requirements}</em></p>}
-                    {b.message && <p>💬 Notes: <em>{b.message}</em></p>}
-                    {b.status === 'cancelled' && b.rejection_reason && (
-                      <div className="rejection-reason-box" style={{
-                        marginTop: '0.75rem',
-                        padding: '0.75rem',
-                        backgroundColor: '#fef2f2',
-                        border: '1.5px dashed #fecaca',
-                        borderRadius: '8px',
-                        color: '#991b1b',
-                        fontSize: '0.85rem'
-                      }}>
-                        <strong>🚫 Reason for Decline:</strong> "{b.rejection_reason}"
+                return (
+                  <div key={b.id} className="booking-log-item-card">
+                    <div className="booking-log-header">
+                      <div>
+                        <h4>Booking with {b.service_provider?.user?.full_name}</h4>
+                        <span className="booking-log-category">{b.service_provider?.service_type_label || b.service_provider?.service_type}</span>
                       </div>
-                    )}
-                  </div>
+                      <span className={`booking-status-badge ${b.status}`}>
+                        {b.status.toUpperCase()}
+                      </span>
+                    </div>
 
-                  <div className="booking-log-actions">
-                    {(b.status === 'requested' || b.status === 'confirmed') && (
-                      <button className="button leave-room-danger-btn" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>
-                        Cancel Request
-                      </button>
-                    )}
-                    {b.status === 'confirmed' && (
-                      <button className="button button-primary" onClick={() => handleUpdateStatus(b.id, 'completed')}>
-                        Mark Completed
-                      </button>
-                    )}
-                    {b.status === 'completed' && !b.review && (
-                      <button className="button button-secondary" onClick={() => { setReviewSp(b.service_provider); setReviewBookingId(b.id) }}>
-                        ✍️ Leave Review
-                      </button>
-                    )}
-                    {b.status === 'completed' && b.review && (
-                      <div className="completed-review-feedback">
-                        ⭐⭐⭐⭐⭐ Rated {b.review.rating}/5
-                      </div>
-                    )}
+                    <div className="booking-log-details">
+                      <p>📅 Dates: <strong>{b.start_date} to {b.end_date}</strong></p>
+                      <p>👥 Group Size: <strong>{b.group_size} travelers</strong></p>
+                      {b.specific_requirements && <p>📝 Requirements: <em>{b.specific_requirements}</em></p>}
+                      {b.message && <p>💬 Notes: <em>{b.message}</em></p>}
+                      {b.status === 'cancelled' && b.rejection_reason && (
+                        <div className="rejection-reason-box" style={{
+                          marginTop: '0.75rem',
+                          padding: '0.75rem',
+                          backgroundColor: '#fef2f2',
+                          border: '1.5px dashed #fecaca',
+                          borderRadius: '8px',
+                          color: '#991b1b',
+                          fontSize: '0.85rem'
+                        }}>
+                          <strong>🚫 Reason for Decline:</strong> "{b.rejection_reason}"
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="booking-log-actions">
+                      {(b.status === 'requested' || b.status === 'confirmed') && (
+                        <button className="button leave-room-danger-btn" onClick={() => handleUpdateStatus(b.id, 'cancelled')}>
+                          Cancel Request
+                        </button>
+                      )}
+                      {b.status === 'confirmed' && (
+                        <button className="button button-primary" onClick={() => handleUpdateStatus(b.id, 'completed')}>
+                          Mark Completed
+                        </button>
+                      )}
+                      {b.status === 'completed' && !b.review && (
+                        <button className="button button-secondary" onClick={() => { setReviewSp(b.service_provider); setReviewBookingId(b.id) }}>
+                          ✍️ Leave Review
+                        </button>
+                      )}
+                      {b.status === 'completed' && b.review && (
+                        <div className="completed-review-feedback">
+                          ⭐⭐⭐⭐⭐ Rated {b.review.rating}/5
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>
@@ -459,6 +556,57 @@ export default function LocalBookings() {
         </div>
       )}
 
+      {/* Transport Route Booking Modal */}
+      {selectedRoute && (
+        <div className="crop-modal">
+          <div className="crop-modal-content sp-booking-form-card" style={{ maxWidth: '480px' }}>
+            <form onSubmit={handleRequestTransportBooking} className="sp-booking-form">
+              <h3>🎫 Request Transport Ticket</h3>
+              <p className="community-muted">
+                Book tickets for <strong>{selectedRoute.operator}</strong> ({selectedRoute.mode}) from <strong>{selectedRoute.from}</strong> to <strong>{selectedRoute.to}</strong>.
+              </p>
+
+              <div className="double-inputs">
+                <label>
+                  Travel Date
+                  <input type="date" value={transportDate} onChange={e => setTransportDate(e.target.value)} required />
+                </label>
+                <label>
+                  Travelers Count
+                  <input type="number" min="1" max="50" value={transportGroupSize} onChange={e => setTransportGroupSize(parseInt(e.target.value) || 1)} required />
+                </label>
+              </div>
+
+              <div className="filter-group">
+                <label>Ticket Fare Class</label>
+                <input type="text" readOnly value={selectedRoute.travelClass || selectedRoute.travel_class || 'Standard'} style={{ background: '#f1f5f9', cursor: 'not-allowed' }} />
+              </div>
+
+              <div className="filter-group">
+                <label>Estimated Total Cost</label>
+                <div style={{ padding: '0.65rem', background: '#f0fdf4', color: '#166534', fontWeight: 800, borderRadius: '8px', fontSize: '1.1rem', border: '1px solid #bbf7d0' }}>
+                  ৳{(selectedRoute.fare * transportGroupSize).toLocaleString()} BDT
+                </div>
+              </div>
+
+              <label>
+                Special Booking Requests
+                <textarea value={transportNotes} onChange={e => setTransportNotes(e.target.value)} placeholder="Specify seat preference, diet or timings request..." />
+              </label>
+
+              <div className="crop-modal-actions" style={{ marginTop: '1rem' }}>
+                <button type="button" className="button button-secondary" onClick={() => { setSelectedRoute(null); navigate(location.pathname, { replace: true, state: {} }) }} disabled={transportSubmitting}>
+                  Cancel
+                </button>
+                <button type="submit" className="button button-primary" disabled={transportSubmitting}>
+                  {transportSubmitting ? 'Requesting Ticket...' : 'Confirm Ticket Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Review Modal */}
       {reviewSp && (
         <div className="crop-modal">
@@ -503,12 +651,23 @@ export default function LocalBookings() {
 
       <style>{`
         .bookings-page-shell {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2rem 1rem;
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+          .bookings-page-shell {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
         .bookings-page-header h1 {
           margin: 0 0 0.35rem 0;
