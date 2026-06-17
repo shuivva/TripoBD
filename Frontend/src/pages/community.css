@@ -951,3 +951,14 @@
     position: static;
   }
 }
+
+/* Base Form Styling for Community Inputs */
+.create-group-form,
+.composer-card {
+  background: #ffffff;
+  padding: 2rem;
+  border-radius: 16px;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+  max-width: 650px;
+}

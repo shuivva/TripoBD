@@ -1195,6 +1195,39 @@ const MOCK_RESPONSES = {
 
 **Budget:** 1,500-4,000 BDT/day`,
 
+  'cox': `### Cox's Bazar Guide 🏖️
+
+**Highlights:**
+- Inani Beach (Coral stones)
+- Himchari (Waterfall and view)
+- Marine Drive (Scenic coastal road)
+
+**Best Time:** November to March
+**Budget:** 2,000-5,000 BDT/day
+**Route:** Direct flights/buses from Dhaka`,
+
+  'saint martin': `### Saint Martin's Island Guide 🌴
+
+**Highlights:**
+- Chera Dwip
+- Snorkeling and coral viewing
+- Fresh seafood (Lobster, Coral fish)
+
+**Best Time:** November to March (ships don't run in monsoon)
+**Budget:** 2,500-5,000 BDT/day
+**Route:** Dhaka -> Teknaf -> Ship to Island`,
+
+  'sundarban': `### Sundarbans Guide 🐅
+
+**Highlights:**
+- Karamjal & Harbaria
+- Hiron Point & Kotka (Deep forest)
+- Mangrove biodiversity & Royal Bengal Tiger
+
+**Best Time:** November to February
+**Budget:** 5,000-15,000 BDT (depends on package)
+**Route:** Khulna or Mongla -> River cruise package`,
+
   // Itineraries
   '3-day': `### 3-Day Bangladesh Trip Plan 📅
 
@@ -1429,8 +1462,17 @@ function getMockResponse(userMessage) {
   if (message.includes('sylhet')) {
     return MOCK_RESPONSES['sylhet']
   }
-  if (message.includes('best place') || message.includes('destination') || message.includes('visit')) {
+  if (message.includes('best place') || message.includes('destination') || message.includes('visit') || message.includes('where to go')) {
     return MOCK_RESPONSES['best places']
+  }
+  if (message.includes('cox')) {
+    return MOCK_RESPONSES['cox']
+  }
+  if (message.includes('saint martin') || message.includes('st. martin') || message.includes('st martin')) {
+    return MOCK_RESPONSES['saint martin']
+  }
+  if (message.includes('sundarban')) {
+    return MOCK_RESPONSES['sundarban']
   }
   if (message.includes('3 day') || message.includes('3-day') || message.includes('itinerary')) {
     return MOCK_RESPONSES['3-day']
