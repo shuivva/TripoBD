@@ -53,8 +53,10 @@ export default function GuideNavigation() {
 
       <style>{`
         .guide-navbar {
-          background: #0f172a !important;
-          border-bottom: 1px solid #1e293b;
+          background: rgba(15, 23, 42, 0.75) !important;
+          backdrop-filter: blur(12px) saturate(1.2) !important;
+          -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
         }
         .guide-navbar .brand-link {
           color: white !important;

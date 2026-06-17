@@ -602,12 +602,12 @@ export default function ReviewsAndStories() {
 
       <style>{`
         .stories-page-shell {
-          margin-top: 60px !important;
-          margin-left: 240px !important;
-          width: calc(100% - 240px) !important;
+          margin-top: 98px !important;
+          margin-left: 264px !important;
+          width: calc(100% - 264px) !important;
           max-width: none !important;
-          padding: 2rem !important;
-          min-height: calc(100vh - 60px);
+          padding: 0 2rem 2rem 2rem !important;
+          min-height: calc(100vh - 98px);
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
@@ -616,8 +616,8 @@ export default function ReviewsAndStories() {
 
         @media (max-width: 1024px) {
           .stories-page-shell {
-            margin-left: 70px !important;
-            width: calc(100% - 70px) !important;
+            margin-left: 80px !important;
+            width: calc(100% - 80px) !important;
           }
         }
         .stories-page-header h1 {

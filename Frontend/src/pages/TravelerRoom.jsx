@@ -572,9 +572,41 @@ export default function TravelerRoom() {
     // Calculate split cost summaries
     const totalExpenses = (roomDetail.expenses || []).reduce((acc, curr) => acc + parseFloat(curr.amount), 0)
     const unpaidShares = (roomDetail.expenses || []).reduce((acc, exp) => {
-      const userUnpaid = exp.participants.filter(p => p.user.id === parseInt(userId) && !p.is_paid)
+      const userUnpaid = exp.participants.filter(p => p.user === parseInt(userId) && !p.is_paid)
       return acc + userUnpaid.reduce((s, p) => s + parseFloat(p.share_amount), 0)
     }, 0)
+
+    // Calculate detailed outstanding lists
+    const sharesToPay = []
+    const sharesToCollect = []
+
+    if (roomDetail.expenses) {
+      roomDetail.expenses.forEach(exp => {
+        exp.participants.forEach(part => {
+          if (!part.is_paid) {
+            if (part.user === parseInt(userId)) {
+              sharesToPay.push({
+                expenseId: exp.id,
+                description: exp.description,
+                amount: part.share_amount,
+                payerName: exp.payer_name || exp.payer_username,
+                payerUsername: exp.payer_username,
+                participantShareId: part.id,
+              })
+            } else if (exp.payer === parseInt(userId)) {
+              sharesToCollect.push({
+                expenseId: exp.id,
+                description: exp.description,
+                amount: part.share_amount,
+                debtorName: part.full_name || part.username,
+                debtorUsername: part.username,
+                participantShareId: part.id,
+              })
+            }
+          }
+        })
+      })
+    }
 
     // Calculate checklist completion
     const totalChecklist = roomDetail.checklist_items?.length || 0
@@ -723,6 +755,60 @@ export default function TravelerRoom() {
                 </div>
               </div>
 
+              {/* Outstanding Settlements Breakdown */}
+              {(sharesToPay.length > 0 || sharesToCollect.length > 0) && (
+                <div className="settlements-panel">
+                  <h3>Outstanding Payments Summary</h3>
+                  <div className="settlements-grid">
+                    <div className="settlement-col to-pay">
+                      <h4>💸 You Owe ({sharesToPay.reduce((sum, s) => sum + parseFloat(s.amount), 0).toFixed(2)} ৳)</h4>
+                      {sharesToPay.length === 0 ? (
+                        <p className="clean-slate">You are all settled up! 🎉</p>
+                      ) : (
+                        <div className="settlements-list">
+                          {sharesToPay.map(s => (
+                            <div key={s.participantShareId} className="settlement-item">
+                              <div className="settlement-info">
+                                <strong>{s.amount} ৳</strong> for <em>{s.description}</em> to <strong>{s.payerName}</strong> (@{s.payerUsername})
+                              </div>
+                              <button
+                                className="settlement-action-btn"
+                                onClick={() => handleTogglePaid(s.participantShareId, true)}
+                              >
+                                Mark Paid
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="settlement-col to-collect">
+                      <h4>💰 You Are Owed ({sharesToCollect.reduce((sum, s) => sum + parseFloat(s.amount), 0).toFixed(2)} ৳)</h4>
+                      {sharesToCollect.length === 0 ? (
+                        <p className="clean-slate">No pending collections. 👍</p>
+                      ) : (
+                        <div className="settlements-list">
+                          {sharesToCollect.map(s => (
+                            <div key={s.participantShareId} className="settlement-item">
+                              <div className="settlement-info">
+                                <strong>{s.amount} ৳</strong> for <em>{s.description}</em> from <strong>{s.debtorName}</strong> (@{s.debtorUsername})
+                              </div>
+                              <button
+                                className="settlement-action-btn"
+                                onClick={() => handleTogglePaid(s.participantShareId, true)}
+                              >
+                                Confirm Received
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="tab-grid-split">
                 <div className="expenses-main-column">
                   <h3>Recorded Expenses</h3>
@@ -735,7 +821,7 @@ export default function TravelerRoom() {
                           <div className="expense-header">
                             <div>
                               <h4>{exp.description}</h4>
-                              <small>Paid by <strong>{exp.payer?.username === localStorage.getItem('username') ? 'You' : exp.payer?.username}</strong> on {exp.date}</small>
+                              <small>Paid by <strong>{exp.payer_username === localStorage.getItem('username') ? 'You' : (exp.payer_name || exp.payer_username)}</strong> on {exp.date}</small>
                             </div>
                             <span className="expense-amt-badge">{exp.amount} ৳</span>
                           </div>
@@ -744,15 +830,15 @@ export default function TravelerRoom() {
                             <h5>Splits Breakdown:</h5>
                             {exp.participants.map(part => (
                               <div key={part.id} className="share-participant-row">
-                                <span>{part.share_amount} ৳ - {part.user.full_name} (@{part.user.username})</span>
-                                {part.user.id === parseInt(userId) ? (
+                                <span>{part.share_amount} ৳ - {part.full_name} (@{part.username})</span>
+                                {(part.user === parseInt(userId) || exp.payer === parseInt(userId)) ? (
                                   <label className="toggle-pay-checkbox">
                                     <input
                                       type="checkbox"
                                       checked={part.is_paid}
                                       onChange={(e) => handleTogglePaid(part.id, e.target.checked)}
                                     />
-                                    {part.is_paid ? '✅ Paid' : '⏳ Click to Pay Payer'}
+                                    {part.is_paid ? '✅ Paid' : (part.user === parseInt(userId) ? '⏳ Click to Pay Payer' : '⏳ Mark as Paid')}
                                   </label>
                                 ) : (
                                   <span className={`share-status ${part.is_paid ? 'paid' : 'unpaid'}`}>
@@ -1258,12 +1344,12 @@ export default function TravelerRoom() {
 
         <style>{`
           .tr-detail-shell {
-            margin-top: 60px !important;
-            margin-left: 240px !important;
-            width: calc(100% - 240px) !important;
+            margin-top: 98px !important;
+            margin-left: 264px !important;
+            width: calc(100% - 264px) !important;
             max-width: none !important;
-            padding: 1.5rem !important;
-            min-height: calc(100vh - 60px);
+            padding: 0 1.5rem 1.5rem 1.5rem !important;
+            min-height: calc(100vh - 98px);
             box-sizing: border-box;
             display: flex;
             flex-direction: column;
@@ -1272,8 +1358,8 @@ export default function TravelerRoom() {
 
           @media (max-width: 1024px) {
             .tr-detail-shell {
-              margin-left: 70px !important;
-              width: calc(100% - 70px) !important;
+              margin-left: 80px !important;
+              width: calc(100% - 80px) !important;
             }
           }
           .tr-detail-nav {
@@ -1649,6 +1735,97 @@ export default function TravelerRoom() {
           }
           .share-status.paid { color: #059669; background: #d1fae5; }
           .share-status.unpaid { color: #ef4444; background: #fee2e2; }
+
+          /* Settlements Panel */
+          .settlements-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            padding: 1.25rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.04);
+          }
+          .settlements-panel h3 {
+            margin: 0 0 1rem;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #0f172a;
+          }
+          .settlements-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.25rem;
+          }
+          @media (max-width: 768px) {
+            .settlements-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+          .settlement-col {
+            padding: 1rem;
+            border-radius: 12px;
+            background: rgba(248, 250, 252, 0.6);
+            border: 1px solid rgba(241, 245, 249, 0.8);
+          }
+          .settlement-col h4 {
+            margin: 0 0 0.75rem;
+            font-size: 0.9rem;
+            font-weight: 750;
+            color: #334155;
+          }
+          .settlements-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+            max-height: 200px;
+            overflow-y: auto;
+          }
+          .settlement-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            background: white;
+            border: 1px solid #f1f5f9;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.01);
+          }
+          .settlement-info {
+            color: #475569;
+            line-height: 1.35;
+            padding-right: 0.5rem;
+          }
+          .settlement-info strong {
+            color: #0f172a;
+          }
+          .clean-slate {
+            font-size: 0.82rem;
+            color: #64748b;
+            margin: 0.5rem 0;
+            font-style: italic;
+          }
+          .settlement-action-btn {
+            background: #10b981;
+            color: white;
+            border: none;
+            padding: 0.35rem 0.7rem;
+            font-size: 0.75rem;
+            font-weight: 750;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+          }
+          .settlement-action-btn:hover {
+            background: #059669;
+            transform: translateY(-1px);
+          }
+          .settlement-action-btn:active {
+            transform: translateY(0);
+          }
 
           .split-checkboxes-group {
             display: flex;
@@ -2252,12 +2429,12 @@ export default function TravelerRoom() {
 
       <style>{`
         .tr-overview-shell {
-          margin-top: 60px !important;
-          margin-left: 240px !important;
-          width: calc(100% - 240px) !important;
+          margin-top: 98px !important;
+          margin-left: 264px !important;
+          width: calc(100% - 264px) !important;
           max-width: none !important;
-          padding: 2rem !important;
-          min-height: calc(100vh - 60px);
+          padding: 0 2rem 2rem 2rem !important;
+          min-height: calc(100vh - 98px);
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
@@ -2266,8 +2443,8 @@ export default function TravelerRoom() {
 
         @media (max-width: 1024px) {
           .tr-overview-shell {
-            margin-left: 70px !important;
-            width: calc(100% - 70px) !important;
+            margin-left: 80px !important;
+            width: calc(100% - 80px) !important;
           }
         }
         .tr-overview-header {

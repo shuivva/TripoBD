@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+
 :root {
   --text: #0f1724;
   --text-muted: #51606a;
@@ -362,7 +364,6 @@
 }
 
 /* Language support - Bangla font */
-@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
 
 [data-language="bn"] body,
 [data-language="bn"] html {
@@ -2192,3 +2193,136 @@ h2 {
 [data-theme="dark"] .message.bot { background: #1e293b; color: #e2e8f0; }
 [data-theme="dark"] .chat-input { background: #1e293b; border-color: #334155; }
 [data-theme="dark"] .chat-input input { background: #0f172a; color: #f8fafc; border-color: #334155; }
+
+/* Animated Toast Notification System for Success/Error Alerts (.profile-alert) */
+.profile-alert {
+  position: fixed !important;
+  top: 24px !important;
+  right: 24px !important;
+  z-index: 9999 !important;
+  min-width: 320px !important;
+  max-width: 450px !important;
+  padding: 1.15rem 1.5rem !important;
+  border-radius: 16px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.16) !important;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  display: flex !important;
+  align-items: center !important;
+  font-family: var(--sans) !important;
+  font-size: 0.95rem !important;
+  
+  /* Apply 5-second slide-in, stay, and slide-out life-cycle */
+  animation: toastLifeCycle 5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards !important;
+}
+
+/* Success Toast Styling */
+.profile-alert.success {
+  background: rgba(240, 253, 244, 0.95) !important;
+  color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+  border-left: 5px solid #22c55e !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Error Toast Styling */
+.profile-alert.error {
+  background: rgba(254, 242, 242, 0.95) !important;
+  color: #b91c1c !important;
+  border: 1px solid #fecaca !important;
+  border-left: 5px solid #ef4444 !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+[data-theme="dark"] .profile-alert.success {
+  background: rgba(20, 83, 45, 0.95) !important;
+  color: #bbf7d0 !important;
+  border: 1px solid #15803d !important;
+  border-left: 5px solid #22c55e !important;
+}
+
+[data-theme="dark"] .profile-alert.error {
+  background: rgba(127, 29, 29, 0.95) !important;
+  color: #fecaca !important;
+  border: 1px solid #991b1b !important;
+  border-left: 5px solid #ef4444 !important;
+}
+
+@keyframes toastLifeCycle {
+  0% {
+    transform: translateX(120%) translateY(0);
+    opacity: 0;
+  }
+  8% {
+    transform: translateX(0) translateY(0);
+    opacity: 1;
+  }
+  92% {
+    transform: translateX(0) translateY(0);
+    opacity: 1;
+  }
+  99% {
+    transform: translateX(120%) translateY(0);
+    opacity: 0;
+    visibility: visible;
+  }
+  100% {
+    transform: translateX(120%) translateY(0);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Traveler Portal Layout Overrides for Floating Navbar & Sidebar */
+main.traveler-dashboard,
+main.traveler-profile-container,
+main.room-container,
+main.community-container,
+main.ai-assistant-container,
+main.bookings-container,
+main.notifications-container,
+main.reviews-container,
+main.settings-page-shell,
+main.help-container {
+  margin-top: 98px !important;
+  margin-left: 264px !important;
+  width: calc(100% - 264px) !important;
+  max-width: none !important;
+  padding: 0 2rem 2rem 2rem !important;
+  box-sizing: border-box;
+}
+
+@media (max-width: 1024px) {
+  main.traveler-dashboard,
+  main.traveler-profile-container,
+  main.room-container,
+  main.community-container,
+  main.ai-assistant-container,
+  main.bookings-container,
+  main.notifications-container,
+  main.reviews-container,
+  main.settings-page-shell,
+  main.help-container {
+    margin-left: 80px !important;
+    width: calc(100% - 80px) !important;
+  }
+}
+
+@media (max-width: 768px) {
+  main.traveler-dashboard,
+  main.traveler-profile-container,
+  main.room-container,
+  main.community-container,
+  main.ai-assistant-container,
+  main.bookings-container,
+  main.notifications-container,
+  main.reviews-container,
+  main.settings-page-shell,
+  main.help-container {
+    margin-left: 112px !important;
+    width: calc(100% - 136px) !important;
+  }
+}
+
+

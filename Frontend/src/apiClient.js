@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
@@ -285,11 +284,18 @@ export async function sendAIMessageFeedback(messageId, rating) {
   return res.json()
 }
 
-export async function saveAIItinerary(sessionId, messageId, roomName, destinationSlug) {
+export async function saveAIItinerary(sessionId, messageId, { roomName, destinationSlug, roomId } = {}) {
+  const body = { message_id: messageId }
+  if (roomId) {
+    body.room_id = roomId
+  } else {
+    body.room_name = roomName
+    body.destination_slug = destinationSlug
+  }
   const res = await fetch(`${API_BASE}/traveler/ai/sessions/${sessionId}/save-itinerary/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message_id: messageId, room_name: roomName, destination_slug: destinationSlug }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) throw new Error('Failed to save itinerary')
   return res.json()

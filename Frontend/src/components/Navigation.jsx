@@ -47,7 +47,7 @@ export default function Navigation() {
     <header className="site-header home-navbar">
       <div className="brand">
         <Link to="/" className="brand-link">
-          TripoBD <span className="home-role-tag">Home</span>
+          TripoBD
         </Link>
       </div>
       <button
@@ -121,51 +121,47 @@ export default function Navigation() {
         /* Home Navbar styling */
         .home-navbar {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
-          height: 60px;
-          background: #1e293b !important;
-          border-bottom: 1px solid #334155;
+          top: 14px !important;
+          left: 24px !important;
+          right: 24px !important;
+          width: auto !important;
+          height: 70px !important;
+          background: rgba(255, 255, 255, 0.72) !important;
+          backdrop-filter: blur(16px) saturate(1.2) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(1.2) !important;
+          border: 1px solid rgba(0, 0, 0, 0.06) !important;
+          border-radius: 20px !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.03) !important;
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding: 0 1.5rem;
+          padding: 0 2rem !important;
           z-index: 1000;
         }
         .home-navbar .brand-link {
-          color: white !important;
-          font-weight: 900;
-          font-size: 1.4rem;
+          color: #0f172a !important;
+          font-weight: 800;
+          font-size: 1.5rem;
           display: flex;
           align-items: center;
           gap: 0.5rem;
         }
-        .home-role-tag {
-          font-size: 0.7rem;
-          font-weight: 800;
-          background: #10b981;
-          color: white;
-          padding: 0.15rem 0.5rem;
-          border-radius: 4px;
-          text-transform: uppercase;
-        }
         .home-navbar .nav-link {
-          color: #cbd5e1 !important;
+          color: #475569 !important;
           font-size: 0.88rem;
           font-weight: 700;
           text-decoration: none;
-          transition: color 0.15s;
-          padding: 0.35rem 0.65rem;
-          border-radius: 6px;
+          transition: all 0.2s;
+          padding: 0.5rem 0.75rem;
+          border-radius: 999px;
         }
         .home-navbar .nav-link:hover {
-          color: white !important;
-          background: #334155;
+          background: rgba(0, 0, 0, 0.04);
+          color: #0f172a !important;
         }
         .home-navbar .nav-active {
-          color: white !important;
-          background: #10b981 !important;
+          color: #0f172a !important;
+          background: rgba(0, 0, 0, 0.04) !important;
         }
         .home-header-actions {
           display: flex;
@@ -173,36 +169,107 @@ export default function Navigation() {
           gap: 1.25rem;
         }
         .top-action-link {
-          color: #cbd5e1 !important;
+          color: #475569 !important;
           font-size: 0.88rem;
           font-weight: 700;
           text-decoration: none;
-          transition: color 0.15s;
-          padding: 0.35rem 0.65rem;
-          border-radius: 6px;
+          transition: all 0.2s;
+          padding: 0.5rem 0.75rem;
+          border-radius: 999px;
           display: flex;
           align-items: center;
           gap: 0.35rem;
         }
         .top-action-link:hover {
-          color: white !important;
-          background: #334155;
+          background: rgba(0, 0, 0, 0.04);
+          color: #0f172a !important;
         }
         .home-logout-btn {
-          color: #cbd5e1 !important;
+          color: #475569 !important;
           font-size: 0.85rem;
           font-weight: 700;
-          background: transparent;
-          border: 1px solid #334155;
-          padding: 0.35rem 0.75rem;
-          border-radius: 6px;
+          background: #ffffff !important;
+          border: 1px solid #e2e8f0 !important;
+          padding: 0.5rem 1.25rem !important;
+          border-radius: 999px !important;
           cursor: pointer;
-          transition: background 0.2s, color 0.2s;
+          transition: all 0.2s;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
         }
         .home-logout-btn:hover {
-          background: #10b981;
+          background: #f8fafc !important;
+          border-color: #cbd5e1 !important;
+          color: #0f172a !important;
+        }
+        .home-navbar .register-toggle {
+          padding: 0.35rem 0.75rem !important;
+          font-size: 0.85rem !important;
+          font-weight: 700;
+          border-radius: 999px !important;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+          background: linear-gradient(135deg, #10b981, #059669) !important;
+          border: none !important;
           color: white !important;
-          border-color: #10b981;
+          cursor: pointer;
+          height: auto !important;
+          transition: background 0.2s;
+        }
+        .home-navbar .register-toggle:hover {
+          background: linear-gradient(135deg, #059669, #047857) !important;
+        }
+        .home-navbar .button-primary {
+          padding: 0.35rem 0.85rem !important;
+          font-size: 0.85rem !important;
+          font-weight: 700;
+          border-radius: 999px !important;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: var(--accent) !important;
+          color: white !important;
+          cursor: pointer;
+          height: auto !important;
+          transition: background 0.2s, opacity 0.2s;
+        }
+        .home-navbar .button-primary:hover {
+          opacity: 0.95;
+          background: var(--accent-2) !important;
+        }
+
+        /* Dark mode support */
+        [data-theme="dark"] .home-navbar {
+          background: rgba(30, 41, 59, 0.75) !important;
+          border-color: rgba(255, 255, 255, 0.1) !important;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2) !important;
+        }
+        [data-theme="dark"] .home-navbar .brand-link {
+          color: #ffffff !important;
+        }
+        [data-theme="dark"] .home-navbar .nav-link {
+          color: #cbd5e1 !important;
+        }
+        [data-theme="dark"] .home-navbar .nav-link:hover,
+        [data-theme="dark"] .home-navbar .nav-active {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: #ffffff !important;
+        }
+        [data-theme="dark"] .top-action-link {
+          color: #cbd5e1 !important;
+        }
+        [data-theme="dark"] .top-action-link:hover {
+          background: rgba(255, 255, 255, 0.08) !important;
+          color: #ffffff !important;
+        }
+        [data-theme="dark"] .home-logout-btn {
+          background: #1e293b !important;
+          border-color: #334155 !important;
+          color: #cbd5e1 !important;
+        }
+        [data-theme="dark"] .home-logout-btn:hover {
+          background: #334155 !important;
+          color: #ffffff !important;
         }
       `}</style>
     </header>

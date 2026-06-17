@@ -94,8 +94,10 @@ export default function AdminNavigation() {
           left: 0;
           right: 0;
           height: 60px;
-          background: #1e293b !important;
-          border-bottom: 1px solid #334155;
+          background: rgba(30, 41, 59, 0.75) !important;
+          backdrop-filter: blur(12px) saturate(1.2) !important;
+          -webkit-backdrop-filter: blur(12px) saturate(1.2) !important;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
           display: flex;
           justify-content: space-between;
           align-items: center;

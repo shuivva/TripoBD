@@ -234,6 +234,31 @@ export default function GroupDetail() {
           </div>
         </section>
       </div>
+
+      <style>{`
+        main.page-shell.community-page {
+          margin-top: 98px !important;
+          margin-left: 264px !important;
+          width: calc(100% - 264px) !important;
+          max-width: none !important;
+          padding: 0 2rem 2rem 2rem !important;
+          min-height: calc(100vh - 98px);
+          box-sizing: border-box;
+        }
+        @media (max-width: 1024px) {
+          main.page-shell.community-page {
+            margin-left: 80px !important;
+            width: calc(100% - 80px) !important;
+          }
+        }
+        @media (max-width: 768px) {
+          main.page-shell.community-page {
+            margin-left: 0 !important;
+            width: 100% !important;
+            padding: 1rem !important;
+          }
+        }
+      `}</style>
     </main>
   )
 }

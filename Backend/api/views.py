@@ -801,26 +801,35 @@ def ai_save_itinerary(request, session_id):
     if not msg:
         return Response({'error': 'Itinerary message not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    room_name = request.data.get('room_name', 'Saved AI Itinerary Room')
-    dest_slug = request.data.get('destination_slug', 'bandarban')
-    dest = Destination.objects.filter(slug=dest_slug).first()
+    room_id = request.data.get('room_id')
+    if room_id:
+        room = TourRoom.objects.filter(pk=room_id).first()
+        if not room:
+            return Response({'error': 'Tour Room not found'}, status=status.HTTP_404_NOT_FOUND)
+        # Check membership
+        if not TourRoomMembership.objects.filter(room=room, user=session.user_profile.user).exists():
+            return Response({'error': 'You are not a member of this Tour Room'}, status=status.HTTP_403_FORBIDDEN)
+    else:
+        room_name = request.data.get('room_name', 'Saved AI Itinerary Room')
+        dest_slug = request.data.get('destination_slug', 'bandarban')
+        dest = Destination.objects.filter(slug=dest_slug).first()
 
-    # Create Tour Room
-    from datetime import timedelta
-    start_date = timezone.now() + timedelta(days=14)
-    end_date = start_date + timedelta(days=3)
+        # Create Tour Room
+        from datetime import timedelta
+        start_date = timezone.now() + timedelta(days=14)
+        end_date = start_date + timedelta(days=3)
 
-    room = TourRoom.objects.create(
-        name=room_name,
-        destination=dest,
-        start_datetime=start_date,
-        end_datetime=end_date,
-        description=f"Generated from AI assistant conversation session: {session.title}",
-        owner=session.user_profile.user,
-        invite_code=f"ROOM-{room_name.replace(' ', '-').upper()}-{session.id}",
-    )
-    # Join creator
-    TourRoomMembership.objects.create(room=room, user=session.user_profile.user, is_admin=True)
+        room = TourRoom.objects.create(
+            name=room_name,
+            destination=dest,
+            start_datetime=start_date,
+            end_datetime=end_date,
+            description=f"Generated from AI assistant conversation session: {session.title}",
+            owner=session.user_profile.user,
+            invite_code=f"ROOM-{room_name.replace(' ', '-').upper()}-{session.id}",
+        )
+        # Join creator
+        TourRoomMembership.objects.create(room=room, user=session.user_profile.user, is_admin=True)
 
     # Create mock activities based on common 3-day itinerary
     activities = [
