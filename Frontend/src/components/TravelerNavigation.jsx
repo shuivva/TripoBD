@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { getNotifications } from '../apiClient'
+import TravelerSidebar from './TravelerSidebar'
 
 export default function TravelerNavigation() {
   const userId = localStorage.getItem('userId')
   const [unreadCount, setUnreadCount] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // Load unread notifications count
   useEffect(() => {
@@ -24,80 +26,117 @@ export default function TravelerNavigation() {
     return () => clearInterval(interval)
   }, [userId])
 
-  const navLinks = [
-    { label: 'Dashboard', to: '/traveler/dashboard' },
-    { label: 'Profile', to: '/traveler/profile' },
-    { label: 'Room', to: '/traveler/room' },
-    { label: 'Community', to: '/traveler/community' },
-    { label: '🤖 AI Chat', to: '/traveler/ai' },
-    { label: '🤠 Bookings', to: '/traveler/bookings' },
-    { label: '✍️ Reviews & Stories', to: '/traveler/reviews-stories' },
-  ]
-
   return (
-    <header className="site-header traveler-navbar">
-      <div className="brand">
-        <Link to="/traveler/dashboard" className="brand-link">
-          TripoBD
-        </Link>
-      </div>
-      <nav className="main-nav">
-        {navLinks.map((link) => (
+    <>
+      {/* Top Navbar Header */}
+      <header className="site-header traveler-navbar">
+        <div className="brand">
+          <Link to="/" className="brand-link">
+            TripoBD <span className="traveler-role-tag">Traveler</span>
+          </Link>
+        </div>
+        <div className="header-actions traveler-top-actions">
           <NavLink
-            key={link.to}
-            to={link.to}
+            to="/traveler/profile"
             className={({ isActive }) =>
-              isActive ? 'nav-link nav-active' : 'nav-link'
+              isActive ? 'top-action-link top-active' : 'top-action-link'
             }
           >
-            {link.label}
+            👤 Profile
           </NavLink>
-        ))}
-        <NavLink
-          to="/traveler/notifications"
-          className={({ isActive }) =>
-            isActive ? 'nav-link nav-active notif-nav-link' : 'nav-link notif-nav-link'
-          }
-        >
-          🔔 Alerts
-          {unreadCount > 0 && (
-            <span className="navbar-unread-badge">{unreadCount}</span>
-          )}
-        </NavLink>
-      </nav>
-      <div className="header-actions">
-        <button className="button button-tertiary" onClick={handleLogout}>Log out</button>
-      </div>
+          <NavLink
+            to="/traveler/notifications"
+            className={({ isActive }) =>
+              isActive ? 'top-action-link top-active' : 'top-action-link'
+            }
+          >
+            🔔 Alerts
+            {unreadCount > 0 && (
+              <span className="navbar-unread-badge">{unreadCount}</span>
+            )}
+          </NavLink>
+          <button className="button button-tertiary traveler-logout-btn" onClick={handleLogout}>
+            Log out
+          </button>
+        </div>
+      </header>
+
+      {/* Left Sidebar Navigation */}
+      <TravelerSidebar />
 
       <style>{`
+        /* Top Navbar styling */
         .traveler-navbar {
-          background: #0f172a !important;
-          border-bottom: 1px solid #1e293b;
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          height: 60px;
+          background: #1e293b !important;
+          border-bottom: 1px solid #334155;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 0 1.5rem;
+          z-index: 1000;
         }
         .traveler-navbar .brand-link {
           color: white !important;
           font-weight: 900;
           font-size: 1.4rem;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
-        .traveler-navbar .nav-link {
-          color: #94a3b8 !important;
+        .traveler-role-tag {
+          font-size: 0.7rem;
+          font-weight: 800;
+          background: #3b82f6;
+          color: white;
+          padding: 0.15rem 0.5rem;
+          border-radius: 4px;
+          text-transform: uppercase;
+        }
+        .traveler-top-actions {
+          display: flex;
+          align-items: center;
+          gap: 1.25rem;
+        }
+        .top-action-link {
+          color: #cbd5e1 !important;
           font-size: 0.88rem;
           font-weight: 700;
+          text-decoration: none;
           transition: color 0.15s;
+          padding: 0.35rem 0.65rem;
+          border-radius: 6px;
           display: flex;
           align-items: center;
           gap: 0.35rem;
         }
-        .traveler-navbar .nav-link:hover {
-          color: #f1f5f9 !important;
+        .top-action-link:hover {
+          color: white !important;
+          background: #334155;
         }
-        .traveler-navbar .nav-active {
-          color: #38bdf8 !important;
-          border-bottom: 2.5px solid #38bdf8;
-          padding-bottom: 0.2rem;
+        .top-active {
+          color: white !important;
+          background: #3b82f6 !important;
         }
-        .notif-nav-link {
-          position: relative;
+        .traveler-logout-btn {
+          color: #cbd5e1 !important;
+          font-size: 0.85rem;
+          font-weight: 700;
+          background: transparent;
+          border: 1px solid #334155;
+          padding: 0.35rem 0.75rem;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: background 0.2s, color 0.2s;
+        }
+        .traveler-logout-btn:hover {
+          background: #3b82f6;
+          color: white !important;
+          border-color: #3b82f6;
         }
         .navbar-unread-badge {
           background: #ef4444;
@@ -112,16 +151,24 @@ export default function TravelerNavigation() {
           box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
         }
       `}</style>
-    </header>
+    </>
   )
 }
 
 function handleLogout() {
   fetch('http://localhost:8000/api/auth/logout/', { method: 'POST', credentials: 'include' })
     .then(() => {
+      localStorage.removeItem('userId')
+      localStorage.removeItem('userType')
+      localStorage.removeItem('username')
+      localStorage.removeItem('isAdmin')
       window.location.href = '/'
     })
     .catch(() => {
+      localStorage.removeItem('userId')
+      localStorage.removeItem('userType')
+      localStorage.removeItem('username')
+      localStorage.removeItem('isAdmin')
       window.location.href = '/'
     })
 }

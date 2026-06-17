@@ -1,5 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import MapView from '../components/MapView'
+import { getRoutes } from '../apiClient'
 
 /* ═══════════════════════ COORDINATES ═══════════════════════ */
 const COORDS = {
@@ -171,23 +173,6 @@ const baseRoutes = [
 ]
 
 /* ═══════════════════════ GENERATE BIDIRECTIONAL ═══════════════════════ */
-const transportOptions = (() => {
-  const routes = []
-  let id = 1
-  baseRoutes.forEach(r => {
-    const fc = COORDS[r.from] || [23.8, 90.4]
-    const tc = COORDS[r.to]   || [23.8, 90.4]
-    routes.push({ ...r, id: id++, path: [fc, tc] })
-    routes.push({
-      ...r, id: id++, from: r.to, to: r.from,
-      path: [tc, fc],
-      departure: `${(parseInt(r.departure.split(':')[0], 10) + 6) % 24}:${r.departure.split(':')[1]}`,
-      tips: `Return: ${r.tips}`,
-    })
-  })
-  return routes
-})()
-
 const modes = ['Bus', 'Train', 'Launch', 'Air', 'Mixed']
 
 const POPULAR = [
@@ -212,14 +197,62 @@ const travelPerks = [
 ]
 
 export default function Routes() {
+  const navigate = useNavigate()
   const [from, setFrom] = useState('Dhaka')
   const [to,   setTo  ] = useState("Cox's Bazar")
   const [mode, setMode] = useState('Bus')
   const [showFromSugg, setShowFromSugg] = useState(false)
   const [showToSugg,   setShowToSugg  ] = useState(false)
 
-  const uniqueFrom = useMemo(() => [...new Set(transportOptions.map(r => r.from))].sort(), [])
-  const uniqueTo   = useMemo(() => [...new Set(transportOptions.map(r => r.to  ))].sort(), [])
+  const [dbRoutes, setDbRoutes] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    getRoutes()
+      .then(data => {
+        setDbRoutes(data)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to load routes from backend:", err)
+        setLoading(false)
+      })
+  }, [])
+
+  const transportOptions = useMemo(() => {
+    const raw = dbRoutes.length ? dbRoutes : baseRoutes
+    const routes = []
+    let id = 1
+    raw.forEach(r => {
+      const fromVal = r.from || r.from_location
+      const toVal = r.to || r.to_location
+      const fc = COORDS[fromVal] || [23.8, 90.4]
+      const tc = COORDS[toVal]   || [23.8, 90.4]
+
+      const normalizedRoute = {
+        ...r,
+        from: fromVal,
+        to: toVal,
+        id: r.id || id++,
+        path: [fc, tc]
+      }
+      routes.push(normalizedRoute)
+
+      routes.push({
+        ...normalizedRoute,
+        id: r.id ? `rev-${r.id}` : id++,
+        from: toVal,
+        to: fromVal,
+        path: [tc, fc],
+        departure: r.departure ? `${(parseInt(r.departure.split(':')[0], 10) + 6) % 24}:${r.departure.split(':')[1]}` : '12:00',
+        tips: `Return: ${r.tips || ''}`,
+      })
+    })
+    return routes
+  }, [dbRoutes])
+
+  const uniqueFrom = useMemo(() => [...new Set(transportOptions.map(r => r.from).filter(Boolean))].sort(), [transportOptions])
+  const uniqueTo   = useMemo(() => [...new Set(transportOptions.map(r => r.to  ).filter(Boolean))].sort(), [transportOptions])
 
   const fromSugg = useMemo(() => {
     if (!from) return uniqueFrom.slice(0, 6)
@@ -245,6 +278,16 @@ export default function Routes() {
   const path = selected?.path || []
 
   const pick = (f, t) => { setFrom(f); setTo(t) }
+
+  const handleBookNow = (route) => {
+    const userId = localStorage.getItem('userId')
+    if (!userId) {
+      alert("Please sign in to book transport tickets.")
+      navigate('/signin')
+      return
+    }
+    navigate('/traveler/bookings', { state: { route } })
+  }
 
   return (
     <main className="page-shell page-routes">
@@ -392,7 +435,7 @@ export default function Routes() {
                   </div>
                   <div className="rt-card-right">
                     <span className="rt-card-fare">৳{route.fare.toLocaleString()}</span>
-                    <button className="rt-card-book">Book Now</button>
+                    <button className="rt-card-book" onClick={() => handleBookNow(route)}>Book Now</button>
                   </div>
                 </article>
               ))}

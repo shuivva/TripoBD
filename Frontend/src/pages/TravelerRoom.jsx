@@ -5,6 +5,7 @@ import {
   getTourRooms,
   getTourRoomDetail,
   createTourRoom,
+  deleteTourRoom,
   inviteToTourRoom,
   getTourRoomInvites,
   respondToTourRoomInvite,
@@ -218,6 +219,21 @@ export default function TravelerRoom() {
       setErrorMsg(err.message || 'Failed to create tour room.')
     } finally {
       setCreateSubmitting(false)
+    }
+  }
+
+  const handleDeleteRoom = async (e, roomId) => {
+    e.stopPropagation()
+    if (!confirm('Are you sure you want to cancel and delete this Tour Room? This will permanently remove it.')) return
+    setErrorMsg('')
+    setSuccessMsg('')
+    try {
+      await deleteTourRoom(roomId, userId)
+      setSuccessMsg('Tour Room deleted successfully!')
+      loadOverviewData()
+      setTimeout(() => setSuccessMsg(''), 3000)
+    } catch (err) {
+      setErrorMsg(err.message || 'Failed to delete tour room.')
     }
   }
 
@@ -728,7 +744,7 @@ export default function TravelerRoom() {
                             <h5>Splits Breakdown:</h5>
                             {exp.participants.map(part => (
                               <div key={part.id} className="share-participant-row">
-                                <span>{part.user.username} (Share: {part.share_amount} ৳)</span>
+                                <span>{part.share_amount} ৳ - {part.user.full_name} (@{part.user.username})</span>
                                 {part.user.id === parseInt(userId) ? (
                                   <label className="toggle-pay-checkbox">
                                     <input
@@ -1242,12 +1258,23 @@ export default function TravelerRoom() {
 
         <style>{`
           .tr-detail-shell {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 1.5rem 1rem;
+            margin-top: 60px !important;
+            margin-left: 240px !important;
+            width: calc(100% - 240px) !important;
+            max-width: none !important;
+            padding: 1.5rem !important;
+            min-height: calc(100vh - 60px);
+            box-sizing: border-box;
             display: flex;
             flex-direction: column;
             gap: 1rem;
+          }
+
+          @media (max-width: 1024px) {
+            .tr-detail-shell {
+              margin-left: 70px !important;
+              width: calc(100% - 70px) !important;
+            }
           }
           .tr-detail-nav {
             display: flex;
@@ -2104,6 +2131,15 @@ export default function TravelerRoom() {
                   <p className="room-destination">📍 {room.destination?.name || 'Group Destination'}</p>
                   <div className="room-card-footer">
                     <span className="view-details-link">Open Planner ➔</span>
+                    {room.owner === parseInt(userId) && (
+                      <button 
+                        className="delete-room-btn" 
+                        onClick={(e) => handleDeleteRoom(e, room.id)}
+                        title="Delete Tour Room"
+                      >
+                        🗑️ Cancel
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2201,12 +2237,23 @@ export default function TravelerRoom() {
 
       <style>{`
         .tr-overview-shell {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2rem 1rem;
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+          .tr-overview-shell {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
         .tr-overview-header {
           display: flex;
@@ -2373,11 +2420,31 @@ export default function TravelerRoom() {
         .room-card-footer {
           border-top: 1px solid #f1f5f9;
           padding-top: 0.75rem;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
         }
         .view-details-link {
           font-size: 0.82rem;
           font-weight: 750;
           color: #4f46e5;
+        }
+        .delete-room-btn {
+          background: transparent;
+          border: none;
+          color: #ef4444;
+          font-size: 0.82rem;
+          font-weight: 755;
+          cursor: pointer;
+          padding: 0.25rem 0.5rem;
+          border-radius: 6px;
+          transition: background-color 0.2s, color 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+        .delete-room-btn:hover {
+          background-color: #fee2e2;
         }
 
         /* Create room form inside modal */

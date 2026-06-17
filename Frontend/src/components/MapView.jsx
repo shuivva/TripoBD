@@ -89,14 +89,21 @@ export default function MapView({ pins, path }) {
       markers.current = []
       if (polyline.current) { map.removeLayer(polyline.current); polyline.current = null }
 
-      // Route path line
-      if (path && path.length >= 2) {
-        polyline.current = L.polyline(path, {
+      // Route path line - validate each coordinate pair
+      const validPath = (path || []).filter(coord => 
+        Array.isArray(coord) && 
+        coord.length >= 2 && 
+        typeof coord[0] === 'number' && !isNaN(coord[0]) &&
+        typeof coord[1] === 'number' && !isNaN(coord[1])
+      )
+
+      if (validPath.length >= 2) {
+        polyline.current = L.polyline(validPath, {
           color: '#10b981', weight: 4, opacity: .85, dashArray: '8 6',
         }).addTo(map)
 
         // endpoint markers
-        path.forEach((coord, i) => {
+        validPath.forEach((coord, i) => {
           const isStart = i === 0
           const icon = L.divIcon({
             className: '',
@@ -106,9 +113,13 @@ export default function MapView({ pins, path }) {
           const m = L.marker(coord, { icon }).addTo(map)
           markers.current.push(m)
         })
-        const bounds = L.polyline(path).getBounds()
-        if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
-          map.fitBounds(bounds.pad(0.25))
+        try {
+          const bounds = L.polyline(validPath).getBounds()
+          if (bounds && typeof bounds.isValid === 'function' && bounds.isValid()) {
+            map.fitBounds(bounds.pad(0.25))
+          }
+        } catch (e) {
+          console.warn('Polyline bounds error:', e)
         }
         return
       }
@@ -153,12 +164,27 @@ export default function MapView({ pins, path }) {
       }
     }
 
-    if (window.L) { init(window.L) }
-    else {
-      const s = document.createElement('script')
-      s.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
-      s.onload = () => init(window.L)
-      document.body.appendChild(s)
+    let cleanupScript = null
+
+    if (window.L) {
+      init(window.L)
+    } else {
+      let script = document.getElementById('leaflet-js')
+      if (!script) {
+        script = document.createElement('script')
+        script.id = 'leaflet-js'
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        document.body.appendChild(script)
+      }
+      const onLoad = () => init(window.L)
+      script.addEventListener('load', onLoad)
+      cleanupScript = () => {
+        script.removeEventListener('load', onLoad)
+      }
+    }
+
+    return () => {
+      if (cleanupScript) cleanupScript()
     }
   }, [spots, path])
 

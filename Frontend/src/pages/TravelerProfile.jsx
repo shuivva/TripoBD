@@ -685,13 +685,24 @@ export default function TravelerProfile() {
       </div>
 
       <style>{`
-        .traveler-profile-container {
-          max-width: 1200px;
-          margin: 0 auto;
+        main.traveler-profile-container {
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
-          padding: 2rem 1rem;
+        }
+
+        @media (max-width: 1024px) {
+          main.traveler-profile-container {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
         
         .profile-alert {

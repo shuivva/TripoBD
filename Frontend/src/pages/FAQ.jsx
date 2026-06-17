@@ -1,11 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { getFaqsList, getFaqCategories, getVideoTutorials } from '../apiClient'
 
-const faqCategories = [
+const fallbackCategories = [
   'All', 'Registration', 'Trip Planning', 'Payments', 'Tour Groups',
   'Local Guides', 'Safety', 'Permits', 'Transport', 'App'
 ]
 
-const faqData = [
+const fallbackFaqs = [
   { id: 1, category: 'Registration', question: 'How do I create an account on TripoBD?', answer: 'Click the "Sign Up" button in the top right corner of the homepage. Fill in your name, email address, and create a password. You\'ll receive a verification email to activate your account.' },
   { id: 2, category: 'Registration', question: 'Is registration free?', answer: 'Yes, creating an account on TripoBD is completely free. You can browse destinations, plan trips, and join groups without any subscription fees.' },
   { id: 3, category: 'Trip Planning', question: 'How do I search for destinations?', answer: 'Use the search bar on the homepage to enter your desired destination. You can filter by category (Beaches, Hills, Forests, City) and browse through our curated list of destinations across Bangladesh.' },
@@ -26,7 +27,7 @@ const faqData = [
   { id: 18, category: 'Trip Planning', question: 'When is the best time to visit Bangladesh?', answer: 'The ideal tourist season is from October to March (Winter), offering pleasant weather. For the Sundarbans, November to January is best. If you love lush greenery and waterfalls in Sajek or Bandarban, the monsoon (June-September) is beautiful, but expect heavy rain.' },
 ]
 
-const videoTutorials = [
+const fallbackTutorials = [
   { id: 1, title: 'Getting Started with TripoBD', duration: '3:45', thumbnail: 'https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg', description: 'Learn how to create an account and navigate the platform' },
   { id: 2, title: 'Planning Your First Trip', duration: '5:20', thumbnail: 'https://images.pexels.com/photos/3184360/pexels-photo-3184360.jpeg', description: 'Step-by-step guide to searching and booking destinations' },
   { id: 3, title: 'Using Tour Groups', duration: '4:15', thumbnail: 'https://images.pexels.com/photos/3184338/pexels-photo-3184338.jpeg', description: 'How to join or create travel groups with friends' },
@@ -38,15 +39,42 @@ export default function FAQ() {
   const [expandedFaq, setExpandedFaq] = useState(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  const filteredFaqs = faqData.filter(faq => {
-    const matchesCategory = selectedCategory === 'All' || faq.category === selectedCategory
+  const [categories, setCategories] = useState([])
+  const [faqs, setFaqs] = useState([])
+  const [tutorials, setTutorials] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      getFaqCategories().catch(e => { console.error(e); return [] }),
+      getFaqsList().catch(e => { console.error(e); return [] }),
+      getVideoTutorials().catch(e => { console.error(e); return [] })
+    ]).then(([cats, items, tuts]) => {
+      let catNames = cats.map(c => c.name)
+      if (catNames.length) {
+        if (!catNames.includes('All')) {
+          catNames = ['All', ...catNames]
+        }
+        setCategories(catNames)
+      } else {
+        setCategories(fallbackCategories)
+      }
+      setFaqs(items.length ? items : fallbackFaqs)
+      setTutorials(tuts.length ? tuts : fallbackTutorials)
+      setLoading(false)
+    })
+  }, [])
+
+  const filteredFaqs = faqs.filter(faq => {
+    const catName = typeof faq.category === 'object' && faq.category ? faq.category.name : faq.category
+    const matchesCategory = selectedCategory === 'All' || catName === selectedCategory
     const matchesSearch = faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesCategory && matchesSearch
   })
 
   const suggestions = searchQuery.length > 0
-    ? faqData
+    ? faqs
         .filter(faq => 
           faq.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
           faq.answer.toLowerCase().includes(searchQuery.toLowerCase())
@@ -119,7 +147,7 @@ export default function FAQ() {
       {/* ── CATEGORIES ── */}
       <section className="faq-categories">
         <div className="faq-cats-inner">
-          {faqCategories.map((category) => (
+          {categories.map((category) => (
             <button
               key={category}
               className={`faq-pill${selectedCategory === category ? ' faq-pill-active' : ''}`}
@@ -148,7 +176,9 @@ export default function FAQ() {
                     onClick={() => toggleFaq(faq.id)}
                     aria-expanded={expandedFaq === faq.id}
                   >
-                    <span className="faq-category-badge">{faq.category}</span>
+                    <span className="faq-category-badge">
+                      {typeof faq.category === 'object' && faq.category ? faq.category.name : faq.category}
+                    </span>
                     <span className="faq-question-text">{faq.question}</span>
                     <span className="faq-icon">{expandedFaq === faq.id ? '−' : '+'}</span>
                   </button>
@@ -176,7 +206,7 @@ export default function FAQ() {
               <h3>Video Tutorials</h3>
             </div>
             <div className="video-tutorials">
-              {videoTutorials.map((video) => (
+              {tutorials.map((video) => (
                 <div key={video.id} className="video-card">
                   <div
                     className="video-thumbnail"

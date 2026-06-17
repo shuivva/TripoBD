@@ -245,18 +245,21 @@ export default function TravelerCommunity() {
   }
 
   return (
-    <main className="page-shell community-page">
-      <header className="community-header">
+    <main className="page-shell community-page-shell">
+      {error && <div className="profile-alert error">{error}</div>}
+      {message && <div className="profile-alert success">{message}</div>}
+
+      <header className="community-page-header">
         <h1>Tour Groups &amp; Community</h1>
         <p>Find travel buddies, join open groups, and share your journey.</p>
       </header>
 
-      <nav className="community-tabs">
+      <nav className="community-tabs-bar">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
-            className={activeTab === t.id ? 'tab active' : 'tab'}
+            className={`tab-nav-btn ${activeTab === t.id ? 'active' : ''}`}
             onClick={() => setTab(t.id)}
           >
             {t.label}
@@ -264,11 +267,9 @@ export default function TravelerCommunity() {
         ))}
       </nav>
 
-      {message && <p className="community-message">{message}</p>}
-      {error && <p className="community-error">{error}</p>}
-
       {activeTab === 'browse' && (
-        <section>
+        <section className="feed-layout">
+          <div className="feed-main">
           <form
             className="community-filters"
             onSubmit={(e) => {
@@ -339,11 +340,13 @@ export default function TravelerCommunity() {
               ))}
             </div>
           )}
+          </div>
         </section>
       )}
 
       {activeTab === 'my' && (
-        <section>
+        <section className="feed-layout">
+          <div className="feed-main">
           {loading ? (
             <p className="community-muted">Loading…</p>
           ) : (
@@ -370,59 +373,187 @@ export default function TravelerCommunity() {
               )}
             </>
           )}
+          </div>
         </section>
       )}
 
       {activeTab === 'feed' && (
         <section className="feed-layout">
           <div className="feed-sidebar">
-            <h3>Share with community</h3>
-            <form className="post-form" onSubmit={handleCreatePost}>
-              <select
-                value={postForm.post_type}
-                onChange={(e) => setPostForm((p) => ({ ...p, post_type: e.target.value }))}
-              >
-                <option value="story">Trip Story</option>
-                <option value="photo">Photo</option>
-                <option value="tip">Travel Tip</option>
-              </select>
-              <input
-                placeholder="Title"
-                value={postForm.title}
-                onChange={(e) => setPostForm((p) => ({ ...p, title: e.target.value }))}
-              />
-              <textarea
-                placeholder="What would you like to share?"
-                value={postForm.content}
-                onChange={(e) => setPostForm((p) => ({ ...p, content: e.target.value }))}
-                required
-              />
-              <input
-                placeholder="Image URL (optional)"
-                value={postForm.image_url}
-                onChange={(e) => setPostForm((p) => ({ ...p, image_url: e.target.value }))}
-              />
-              <button type="submit" className="button button-primary">Post</button>
-            </form>
-            <div className="feed-filters">
-              <button
-                type="button"
-                className={!feedFilter ? 'chip active' : 'chip'}
-                onClick={() => setFeedFilter('')}
-              >
-                All
-              </button>
-              {['story', 'photo', 'tip'].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={feedFilter === t ? 'chip active' : 'chip'}
-                  onClick={() => setFeedFilter(t)}
-                >
-                  {t}
+            {/* ── Composer Card ── */}
+            <div className="composer-card">
+              <div className="composer-head">
+                <span className="composer-icon">✍️</span>
+                <div>
+                  <h3 className="composer-title">Share with Community</h3>
+                  <p className="composer-sub">Inspire fellow travelers across Bangladesh</p>
+                </div>
+              </div>
+
+              {/* Post type toggle */}
+              <div className="composer-type-row">
+                {[
+                  { value: 'story', icon: '📖', label: 'Story' },
+                  { value: 'photo', icon: '📸', label: 'Photo' },
+                  { value: 'tip',   icon: '💡', label: 'Tip'   },
+                ].map(t => (
+                  <button
+                    key={t.value} type="button"
+                    className={`composer-type-btn${postForm.post_type === t.value ? ' composer-type-active' : ''}`}
+                    onClick={() => setPostForm(p => ({ ...p, post_type: t.value }))}
+                  >
+                    <span>{t.icon}</span>
+                    <span>{t.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <form className="composer-form" onSubmit={handleCreatePost}>
+                <div className="composer-field">
+                  <label>✏️ Title</label>
+                  <input
+                    className="composer-input"
+                    placeholder={
+                      postForm.post_type === 'story' ? 'e.g. Sunrise at Cox\'s Bazar…' :
+                      postForm.post_type === 'photo' ? 'Caption for your photo…' :
+                      'e.g. Best time to visit Sajek…'
+                    }
+                    value={postForm.title}
+                    onChange={(e) => setPostForm((p) => ({ ...p, title: e.target.value }))}
+                  />
+                </div>
+
+                <div className="composer-field">
+                  <label>
+                    {postForm.post_type === 'story' ? '📝 Your Story' :
+                     postForm.post_type === 'photo' ? '📝 Description' : '💡 Your Tip'}
+                  </label>
+                  <textarea
+                    className="composer-textarea"
+                    rows={4}
+                    placeholder={
+                      postForm.post_type === 'story' ? 'Tell us about your journey…' :
+                      postForm.post_type === 'photo' ? 'What\'s happening in this photo?' :
+                      'Share a helpful tip for other travelers…'
+                    }
+                    value={postForm.content}
+                    onChange={(e) => setPostForm((p) => ({ ...p, content: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                {postForm.post_type === 'photo' && (
+                  <div className="composer-field">
+                    <label>🔗 Image URL</label>
+                    <input
+                      className="composer-input"
+                      placeholder="https://..."
+                      value={postForm.image_url}
+                      onChange={(e) => setPostForm((p) => ({ ...p, image_url: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                {postForm.image_url && postForm.post_type !== 'photo' && (
+                  <div className="composer-field">
+                    <label>🔗 Image URL (optional)</label>
+                    <input
+                      className="composer-input"
+                      placeholder="https://..."
+                      value={postForm.image_url}
+                      onChange={(e) => setPostForm((p) => ({ ...p, image_url: e.target.value }))}
+                    />
+                  </div>
+                )}
+
+                <button type="submit" className="composer-submit">
+                  🚀 Share Post
                 </button>
-              ))}
+              </form>
             </div>
+
+            {/* ── Feed Filters ── */}
+            <div className="composer-filters">
+              <p className="composer-filter-label">Filter by type</p>
+              <div className="composer-filter-row">
+                {[
+                  { val: '', icon: '🌐', label: 'All' },
+                  { val: 'story', icon: '📖', label: 'Stories' },
+                  { val: 'photo', icon: '📸', label: 'Photos' },
+                  { val: 'tip',   icon: '💡', label: 'Tips' },
+                ].map(f => (
+                  <button
+                    key={f.val} type="button"
+                    className={`composer-chip${feedFilter === f.val ? ' composer-chip-active' : ''}`}
+                    onClick={() => setFeedFilter(f.val)}
+                  >
+                    {f.icon} {f.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <style>{`
+              main.community-page-shell {
+                margin-top: 60px !important;
+                margin-left: 240px !important;
+                width: calc(100% - 240px) !important;
+                max-width: none !important;
+                padding: 2rem !important;
+                min-height: calc(100vh - 60px);
+                box-sizing: border-box;
+                display: flex;
+                flex-direction: column;
+                gap: 2rem;
+              }
+
+              @media (max-width: 1024px) {
+                main.community-page-shell {
+                  margin-left: 70px !important;
+                  width: calc(100% - 70px) !important;
+                }
+              }
+              .community-page-header h1 {
+                margin: 0 0 0.35rem 0;
+                font-size: 2.2rem;
+                font-weight: 850;
+                color: #0f172a;
+              }
+              .community-page-header p {
+                margin: 0;
+                font-size: 1.05rem;
+                color: #64748b;
+                max-width: 800px;
+              }
+
+              .community-tabs-bar {
+                display: flex;
+                gap: 0.5rem;
+                border-bottom: 2px solid #e2e8f0;
+                padding-bottom: 0.5rem;
+              }
+              .tab-nav-btn {
+                background: transparent;
+                border: none;
+                padding: 0.75rem 1.25rem;
+                font-size: 0.95rem;
+                font-weight: 750;
+                color: #64748b;
+                cursor: pointer;
+                border-radius: 10px;
+                transition: all 0.2s;
+              }
+              .tab-nav-btn:hover {
+                background: #f8fafc;
+                color: #0f172a;
+              }
+              .tab-nav-btn.active {
+                background: linear-gradient(135deg, #5b8cff, #6ee7b7);
+                color: #0f1724;
+                font-weight: 800;
+              }
+
+            `}</style>
           </div>
 
           <div className="feed-main">
@@ -501,7 +632,9 @@ export default function TravelerCommunity() {
       )}
 
       {activeTab === 'create' && (
-        <section className="create-group-form">
+        <section className="feed-layout">
+          <div className="feed-main">
+          <div className="create-group-form">
           <h2>Create an open tour group</h2>
           <form onSubmit={handleCreateGroup}>
             <label>Group name</label>

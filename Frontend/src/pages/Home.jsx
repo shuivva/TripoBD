@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { valueCards, appStats, featuredDestinations, landingStories } from '../data'
+import { useMemo, useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { getHomePageData, getTravelerProfile, toggleWishlist } from '../apiClient'
+import { valueCards as fallbackValueCards, appStats as fallbackAppStats, featuredDestinations as fallbackFeatured, landingStories as fallbackStories } from '../data'
 
 const DEST_IMGS = {
   'bandarban':    'https://images.pexels.com/photos/35478460/pexels-photo-35478460.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1280&fit=crop',
@@ -30,21 +31,87 @@ const STORY_OVERRIDE_RATINGS = {
   'Sreemangal': 4.7,
 }
 
-const destImg = (d) => DEST_IMGS[d.slug] || d.hero
+const destImg = (d) => d ? (DEST_IMGS[d.slug] || d.hero || d.image || '') : ''
 const STAT_ICONS = ['🗺️','👥','🧭','🌍']
 
 export default function Home() {
+  const navigate = useNavigate()
+  const [stats, setStats] = useState([])
+  const [valueCards, setValueCards] = useState([])
+  const [landingStories, setLandingStories] = useState([])
+  const [featuredDestinations, setFeaturedDestinations] = useState([])
+  const [spotlightDestination, setSpotlightDestination] = useState(null)
+  const [loading, setLoading] = useState(true)
+
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [savedCards, setSavedCards] = useState({})
-  const carouselItem = featuredDestinations[carouselIndex]
+
+  useEffect(() => {
+    getHomePageData()
+      .then(data => {
+        setStats(data.stats && data.stats.length ? data.stats : fallbackAppStats)
+        setValueCards(data.value_cards && data.value_cards.length ? data.value_cards : fallbackValueCards)
+        setLandingStories(data.landing_stories && data.landing_stories.length ? data.landing_stories : fallbackStories)
+        setFeaturedDestinations(data.featured_destinations && data.featured_destinations.length ? data.featured_destinations : fallbackFeatured)
+        setSpotlightDestination(data.spotlight_destination || null)
+        setLoading(false)
+      })
+      .catch(err => {
+        console.error("Failed to load home page dynamic data:", err)
+        setStats(fallbackAppStats)
+        setValueCards(fallbackValueCards)
+        setLandingStories(fallbackStories)
+        setFeaturedDestinations(fallbackFeatured)
+        setLoading(false)
+      })
+  }, [])
+
+  useEffect(() => {
+    const userId = localStorage.getItem('userId')
+    const userType = localStorage.getItem('userType')
+    if (userId && userType === 'traveler') {
+      getTravelerProfile(userId)
+        .then(profile => {
+          const saved = {}
+          if (profile.wishlist) {
+            profile.wishlist.forEach(item => {
+              if (item.destination && item.destination.slug) {
+                saved[item.destination.slug] = true
+              }
+            })
+          }
+          setSavedCards(saved)
+        })
+        .catch(err => console.error("Failed to load wishlist:", err))
+    }
+  }, [])
+
+  const carouselItem = featuredDestinations[carouselIndex] || null
   const total = featuredDestinations.length
-  const nextSlide = () => setCarouselIndex((i) => (i + 1) % total)
-  const prevSlide = () => setCarouselIndex((i) => (i - 1 + total) % total)
-  const previewItems = useMemo(() => featuredDestinations.slice(0, 3), [])
-  const toggleSave = (slug) => setSavedCards((prev) => ({ ...prev, [slug]: !prev[slug] }))
+  const nextSlide = () => setCarouselIndex((i) => (i + 1) % (total || 1))
+  const prevSlide = () => setCarouselIndex((i) => (i - 1 + total) % (total || 1))
+  const previewItems = useMemo(() => featuredDestinations.slice(0, 3), [featuredDestinations])
+  
+  const toggleSave = async (slug) => {
+    const userId = localStorage.getItem('userId')
+    const userType = localStorage.getItem('userType')
+    if (!userId || userType !== 'traveler') {
+      alert("Please sign in as a traveler to save destinations to your wishlist.")
+      navigate('/signin')
+      return
+    }
+
+    try {
+      const res = await toggleWishlist(userId, slug)
+      setSavedCards(prev => ({ ...prev, [slug]: res.is_saved }))
+    } catch (err) {
+      console.error("Failed to toggle wishlist item:", err)
+      alert("Could not update wishlist. Please try again.")
+    }
+  }
 
   return (
-    <main className="page-shell">
+    <main className="page-shell home-page-shell">
 
       {/* ════ HERO ════ */}
       <section className="hero-panel hero-tripadvisor">
@@ -122,22 +189,28 @@ export default function Home() {
           </div>
           <h2>Discover Bangladesh's most loved routes.</h2>
         </div>
-        <div className="fc-card">
-          <div className="fc-card-img" style={{ backgroundImage: `url(${destImg(carouselItem)})` }}>
-            <div className="fc-img-overlay" />
-            <span className="fc-badge-region">{carouselItem.region}</span>
-            <span className="fc-badge-rating">{carouselItem.rating} ★</span>
-          </div>
-          <div className="fc-card-body">
-            <span className="fc-cat-tag">{carouselItem.category}</span>
-            <h3 className="fc-title">{carouselItem.name}</h3>
-            <p className="fc-summary">{carouselItem.summary}</p>
-            <div className="fc-meta">
-              <span className="fc-reviews">⭐ {carouselItem.rating} · {carouselItem.reviews || 120} reviews</span>
-              <Link to={`/destination/${carouselItem.slug}`} className="fc-detail-btn">View Details →</Link>
+        {carouselItem ? (
+          <div className="fc-card">
+            <div className="fc-card-img" style={{ backgroundImage: `url(${destImg(carouselItem)})` }}>
+              <div className="fc-img-overlay" />
+              <span className="fc-badge-region">{carouselItem.region}</span>
+              <span className="fc-badge-rating">{carouselItem.rating} ★</span>
+            </div>
+            <div className="fc-card-body">
+              <span className="fc-cat-tag">{carouselItem.category}</span>
+              <h3 className="fc-title">{carouselItem.name}</h3>
+              <p className="fc-summary">{carouselItem.summary}</p>
+              <div className="fc-meta">
+                <span className="fc-reviews">⭐ {carouselItem.rating} · {carouselItem.reviews || 120} reviews</span>
+                <Link to={`/destination/${carouselItem.slug}`} className="fc-detail-btn">View Details →</Link>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="fc-card-placeholder" style={{ minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', borderRadius: '1.25rem', border: '1px solid #e2e8f0' }}>
+            <p style={{ color: '#64748b', fontWeight: 600 }}>Loading featured destination...</p>
+          </div>
+        )}
         <div className="fc-controls">
           <button onClick={prevSlide} className="fc-arrow" aria-label="Previous">‹</button>
           <div className="fc-dots">
@@ -214,15 +287,7 @@ export default function Home() {
                   </div>
                   <p className="tc-region">📍 {d.region}</p>
                   <div className="tc-actions">
-                    {isBandarban ? (
-                      <a href="https://www.amazingtoursbd.com/nilgiri-bandarban-hills-of-bangladesh"
-                        target="_blank" rel="noopener noreferrer" className="tc-btn-view">View</a>
-                    ) : isSundarbans ? (
-                      <a href="https://archive.roar.media/bangla/main/travel/beautiful-ratargul-swamp-forest"
-                        target="_blank" rel="noopener noreferrer" className="tc-btn-view">View</a>
-                    ) : (
-                      <Link to={`/destination/${d.slug}`} className="tc-btn-view">View</Link>
-                    )}
+                    <Link to={`/destination/${d.slug}`} className="tc-btn-view">View</Link>
                     <button className={`tc-btn-save${isSaved ? ' tc-btn-saved' : ''}`}
                       onClick={() => toggleSave(d.slug)}>
                       {isSaved ? '❤️' : '🤍'} Save
@@ -237,7 +302,7 @@ export default function Home() {
 
       {/* ════ STATS ════ */}
       <section className="st-section">
-        {appStats.map((stat, i) => (
+        {stats.map((stat, i) => (
           <div key={stat.label} className="st-card">
             <span className="st-icon">{STAT_ICONS[i] || '📊'}</span>
             <strong className="st-val">{stat.value.toLocaleString()}</strong>
@@ -276,26 +341,32 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════ BANDARBAN SPOTLIGHT ════ */}
+      {/* ════ SPOTLIGHT ════ */}
       <section className="bs-section">
         <div className="bs-img-wrap">
-          <img src="https://images.pexels.com/photos/35478460/pexels-photo-35478460.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1280&fit=crop"
-            alt="Nilgiri Hills Bandarban" className="bs-img" />
+          <img src={destImg(spotlightDestination) || "https://images.pexels.com/photos/35478460/pexels-photo-35478460.jpeg?auto=compress&cs=tinysrgb&w=1920&h=1280&fit=crop"}
+            alt={spotlightDestination?.name || "Nilgiri Hills Bandarban"} className="bs-img" />
           <div className="bs-img-overlay" />
         </div>
         <div className="bs-copy">
           <span className="eyebrow">Destination spotlight</span>
-          <h2>Nilgiri Hills, Bandarban</h2>
-          <p>Perched at 2,200 ft above sea level, Nilgiri offers some of Bangladesh's most breathtaking panoramic views — misty peaks, lush hill tribe villages, and golden sunrises above the clouds.</p>
+          <h2>{spotlightDestination?.name || "Nilgiri Hills, Bandarban"}</h2>
+          <p>{spotlightDestination?.summary || spotlightDestination?.description || "Perched at 2,200 ft above sea level, Nilgiri offers some of Bangladesh's most breathtaking panoramic views — misty peaks, lush hill tribe villages, and golden sunrises above the clouds."}</p>
           <div className="bs-meta">
-            <span className="badge">Hill Tracts</span>
-            <span className="badge">4.8 ★</span>
-            <span className="badge">Chittagong</span>
+            <span className="badge">{spotlightDestination?.category || "Hill Tracts"}</span>
+            <span className="badge">{spotlightDestination?.rating || "4.8"} ★</span>
+            <span className="badge">{spotlightDestination?.region || "Chittagong"}</span>
           </div>
-          <a href="https://www.amazingtoursbd.com/nilgiri-bandarban-hills-of-bangladesh"
-            target="_blank" rel="noopener noreferrer" className="bs-cta-btn">
-            Explore Nilgiri →
-          </a>
+          {spotlightDestination ? (
+            <Link to={`/destination/${spotlightDestination.slug}`} className="bs-cta-btn">
+              Explore {spotlightDestination.name} →
+            </Link>
+          ) : (
+            <a href="https://www.amazingtoursbd.com/nilgiri-bandarban-hills-of-bangladesh"
+              target="_blank" rel="noopener noreferrer" className="bs-cta-btn">
+              Explore Nilgiri →
+            </a>
+          )}
         </div>
       </section>
 
@@ -319,7 +390,7 @@ export default function Home() {
           <div className="hc-typing"><span /><span /><span /></div>
         </div>
         <div className="hc-cta-row">
-          <Link to="/chat" className="hc-cta-btn">Try the AI Assistant →</Link>
+          <Link to="/traveler/ai" className="hc-cta-btn">Try the AI Assistant →</Link>
         </div>
       </section>
 
@@ -367,6 +438,11 @@ export default function Home() {
 
       {/* ════════════ STYLES ════════════ */}
       <style>{`
+        /* Home page shell styling for fixed navbar */
+        main.home-page-shell {
+          margin-top: 60px !important;
+        }
+
         /* ══ SEARCH BAR ══ */
         .hs-wrap { margin-top: 1.75rem; }
         .hs-bar {

@@ -24,6 +24,15 @@ from .models import (
     Accommodation,
     Attraction,
     UserProfile,
+    FAQCategory,
+    FAQItem,
+    VideoTutorial,
+    LandingStory,
+    AppStat,
+    ValueCard,
+    AboutFeature,
+    AboutPainPoint,
+    ContactMessage,
 )
 from .serializers import (
     ServiceProviderProfileSerializer,
@@ -32,6 +41,16 @@ from .serializers import (
     SupportTicketSerializer,
     AdminAuditLogSerializer,
     UserManagementSerializer,
+    FAQCategorySerializer,
+    FAQItemSerializer,
+    VideoTutorialSerializer,
+    LandingStorySerializer,
+    AppStatSerializer,
+    ValueCardSerializer,
+    AboutFeatureSerializer,
+    AboutPainPointSerializer,
+    ContactMessageSerializer,
+    RouteSerializer,
 )
 
 def _get_sp_or_404(user_id):
@@ -829,4 +848,335 @@ def admin_send_announcement(request):
             
         _log_admin_action(admin_user, "SEND_ANNOUNCEMENT", f"Sent global announcement: '{title}' to {target_role}. Content: {message}", request)
         return Response({'status': 'success', 'recipient_count': len(notifications)})
+
+
+# =====================================================================
+# DYNAMIC PAGES CONTROL ENDPOINTS (ADMIN FAQ, ABOUT, HOME, ROUTES)
+# =====================================================================
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+def admin_faq_management(request, faq_id=None):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        faqs = FAQItem.objects.all()
+        return Response(FAQItemSerializer(faqs, many=True).data)
+
+    elif request.method == 'POST':
+        category_name = request.data.get('category')
+        question = request.data.get('question')
+        answer = request.data.get('answer')
+
+        if not category_name or not question or not answer:
+            return Response({'error': 'Missing fields'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cat, _ = FAQCategory.objects.get_or_create(name=category_name)
+        faq = FAQItem.objects.create(category=cat, question=question, answer=answer)
+        _log_admin_action(admin_user, "ADD_FAQ", f"Added FAQ item: '{question}'", request)
+        return Response(FAQItemSerializer(faq).data, status=status.HTTP_201_CREATED)
+
+    elif request.method == 'PUT':
+        if not faq_id:
+            return Response({'error': 'FAQ ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        faq = FAQItem.objects.filter(pk=faq_id).first()
+        if not faq:
+            return Response({'error': 'FAQ item not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        category_name = request.data.get('category')
+        question = request.data.get('question')
+        answer = request.data.get('answer')
+
+        if category_name:
+            cat, _ = FAQCategory.objects.get_or_create(name=category_name)
+            faq.category = cat
+        if question:
+            faq.question = question
+        if answer:
+            faq.answer = answer
+        faq.save()
+
+        _log_admin_action(admin_user, "EDIT_FAQ", f"Modified FAQ item: '{faq.question}'", request)
+        return Response(FAQItemSerializer(faq).data)
+
+    elif request.method == 'DELETE':
+        if not faq_id:
+            return Response({'error': 'FAQ ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        faq = FAQItem.objects.filter(pk=faq_id).first()
+        if not faq:
+            return Response({'error': 'FAQ item not found'}, status=status.HTTP_404_NOT_FOUND)
+        
+        question = faq.question
+        faq.delete()
+        _log_admin_action(admin_user, "DELETE_FAQ", f"Deleted FAQ item: '{question}'", request)
+        return Response({'status': 'success'})
+
+
+@api_view(['GET', 'POST', 'DELETE'])
+def admin_faq_category_management(request, cat_id=None):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        cats = FAQCategory.objects.all()
+        return Response(FAQCategorySerializer(cats, many=True).data)
+
+    elif request.method == 'POST':
+        name = request.data.get('name')
+        if not name:
+            return Response({'error': 'Name is required'}, status=status.HTTP_400_BAD_REQUEST)
+        cat, created = FAQCategory.objects.get_or_create(name=name)
+        _log_admin_action(admin_user, "ADD_FAQ_CATEGORY", f"Created FAQ Category: '{name}'", request)
+        return Response(FAQCategorySerializer(cat).data)
+
+    elif request.method == 'DELETE':
+        if not cat_id:
+            return Response({'error': 'Category ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        cat = FAQCategory.objects.filter(pk=cat_id).first()
+        if not cat:
+            return Response({'error': 'Category not found'}, status=status.HTTP_404_NOT_FOUND)
+        name = cat.name
+        cat.delete()
+        _log_admin_action(admin_user, "DELETE_FAQ_CATEGORY", f"Deleted FAQ Category: '{name}'", request)
+        return Response({'status': 'success'})
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+def admin_tutorial_management(request, tut_id=None):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        tuts = VideoTutorial.objects.all()
+        return Response(VideoTutorialSerializer(tuts, many=True).data)
+
+    elif request.method == 'POST':
+        serializer = VideoTutorialSerializer(data=request.data)
+        if serializer.is_valid():
+            tut = serializer.save()
+            _log_admin_action(admin_user, "ADD_TUTORIAL", f"Added video tutorial: '{tut.title}'", request)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'PUT':
+        if not tut_id:
+            return Response({'error': 'Tutorial ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        tut = VideoTutorial.objects.filter(pk=tut_id).first()
+        if not tut:
+            return Response({'error': 'Tutorial not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = VideoTutorialSerializer(tut, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            _log_admin_action(admin_user, "EDIT_TUTORIAL", f"Modified video tutorial: '{tut.title}'", request)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        if not tut_id:
+            return Response({'error': 'Tutorial ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        tut = VideoTutorial.objects.filter(pk=tut_id).first()
+        if not tut:
+            return Response({'error': 'Tutorial not found'}, status=status.HTTP_404_NOT_FOUND)
+        title = tut.title
+        tut.delete()
+        _log_admin_action(admin_user, "DELETE_TUTORIAL", f"Deleted video tutorial: '{title}'", request)
+        return Response({'status': 'success'})
+
+
+@api_view(['GET', 'PUT'])
+def admin_about_management(request):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        features = AboutFeature.objects.all()
+        pain_points = AboutPainPoint.objects.all()
+        cfg = SystemConfig.objects.filter(key='about_mission_vision').first()
+        mv = cfg.value if cfg else {
+            'mission_title': 'Our Mission',
+            'mission_text': 'To provide travelers with authentic, accessible, and comprehensive information about Bangladesh — making trip planning effortless, collaborative, and enjoyable for everyone.',
+            'vision_title': 'Our Vision',
+            'vision_text': 'To become the premier platform for discovering the hidden gems and cultural heritage of Bangladesh, promoting sustainable and responsible tourism for future generations.'
+        }
+        return Response({
+            'mission_vision': mv,
+            'features': AboutFeatureSerializer(features, many=True).data,
+            'pain_points': AboutPainPointSerializer(pain_points, many=True).data
+        })
+
+    elif request.method == 'PUT':
+        if 'mission_vision' in request.data:
+            cfg, _ = SystemConfig.objects.get_or_create(key='about_mission_vision')
+            cfg.value = request.data['mission_vision']
+            cfg.save()
+
+        if 'features' in request.data:
+            # Rebuild features
+            AboutFeature.objects.all().delete()
+            for f in request.data['features']:
+                AboutFeature.objects.create(
+                    icon=f.get('icon', '🗺️'),
+                    title=f.get('title', ''),
+                    description=f.get('description', '')
+                )
+
+        if 'pain_points' in request.data:
+            # Rebuild pain points
+            AboutPainPoint.objects.all().delete()
+            for p in request.data['pain_points']:
+                AboutPainPoint.objects.create(
+                    n=p.get('n', ''),
+                    icon=p.get('icon', '🗺️'),
+                    title=p.get('title', ''),
+                    description=p.get('description', '')
+                )
+
+        _log_admin_action(admin_user, "UPDATE_ABOUT_SECTIONS", "Modified About page content sections", request)
+        return Response({'status': 'success'})
+
+
+@api_view(['GET', 'DELETE'])
+def admin_contact_messages(request, msg_id=None):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        msgs = ContactMessage.objects.all()
+        # Mark all as read when admin views
+        ContactMessage.objects.all().update(is_read=True)
+        return Response(ContactMessageSerializer(msgs, many=True).data)
+
+    elif request.method == 'DELETE':
+        if not msg_id:
+            return Response({'error': 'Message ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        msg = ContactMessage.objects.filter(pk=msg_id).first()
+        if not msg:
+            return Response({'error': 'Message not found'}, status=status.HTTP_404_NOT_FOUND)
+        sender = msg.name
+        msg.delete()
+        _log_admin_action(admin_user, "DELETE_FEEDBACK", f"Deleted contact feedback message from {sender}", request)
+        return Response({'status': 'success'})
+
+
+@api_view(['GET', 'PUT'])
+def admin_home_management(request):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        stats = AppStat.objects.all()
+        cards = ValueCard.objects.all()
+        stories = LandingStory.objects.all()
+        return Response({
+            'stats': AppStatSerializer(stats, many=True).data,
+            'value_cards': ValueCardSerializer(cards, many=True).data,
+            'landing_stories': LandingStorySerializer(stories, many=True).data
+        })
+
+    elif request.method == 'PUT':
+        if 'stats' in request.data:
+            for s in request.data['stats']:
+                AppStat.objects.filter(pk=s.get('id')).update(value=s.get('value', 0))
+
+        if 'value_cards' in request.data:
+            for v in request.data['value_cards']:
+                ValueCard.objects.filter(pk=v.get('id')).update(
+                    title=v.get('title'),
+                    description=v.get('description')
+                )
+
+        if 'landing_stories' in request.data:
+            # Handle list modification
+            # Rebuild landing stories
+            LandingStory.objects.all().delete()
+            for st in request.data['landing_stories']:
+                LandingStory.objects.create(
+                    title=st.get('title', ''),
+                    summary=st.get('summary', ''),
+                    image=st.get('image', ''),
+                    location=st.get('location', ''),
+                    rating=st.get('rating', 4.8)
+                )
+
+        _log_admin_action(admin_user, "UPDATE_HOME_SECTIONS", "Modified Home page stats/cards/stories sections", request)
+        return Response({'status': 'success'})
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+def admin_route_management(request, route_id=None):
+    admin_id = request.query_params.get('admin_id') or request.data.get('admin_id')
+    try:
+        admin_user = User.objects.get(pk=admin_id)
+        if not (admin_user.is_staff or admin_user.is_superuser):
+             return Response({'error': 'Unauthorized'}, status=status.HTTP_403_FORBIDDEN)
+    except User.DoesNotExist:
+        return Response({'error': 'Admin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        routes = Route.objects.all()
+        return Response(RouteSerializer(routes, many=True).data)
+
+    elif request.method == 'POST':
+        serializer = RouteSerializer(data=request.data)
+        if serializer.is_valid():
+            r = serializer.save()
+            _log_admin_action(admin_user, "ADD_ROUTE", f"Added route: {r.from_location} -> {r.to_location}", request)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'PUT':
+        if not route_id:
+            return Response({'error': 'Route ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        route = Route.objects.filter(pk=route_id).first()
+        if not route:
+            return Response({'error': 'Route not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = RouteSerializer(route, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            _log_admin_action(admin_user, "EDIT_ROUTE", f"Modified route: {route.from_location} -> {route.to_location}", request)
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    elif request.method == 'DELETE':
+        if not route_id:
+            return Response({'error': 'Route ID required'}, status=status.HTTP_400_BAD_REQUEST)
+        route = Route.objects.filter(pk=route_id).first()
+        if not route:
+            return Response({'error': 'Route not found'}, status=status.HTTP_404_NOT_FOUND)
+        lbl = f"{route.from_location} -> {route.to_location}"
+        route.delete()
+        _log_admin_action(admin_user, "DELETE_ROUTE", f"Deleted route: {lbl}", request)
+        return Response({'status': 'success'})
 

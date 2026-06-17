@@ -602,12 +602,23 @@ export default function ReviewsAndStories() {
 
       <style>{`
         .stories-page-shell {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2rem 1rem;
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+          .stories-page-shell {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
         .stories-page-header h1 {
           margin: 0 0 0.35rem 0;

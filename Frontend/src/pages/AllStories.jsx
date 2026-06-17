@@ -194,13 +194,24 @@ export default function AllStories() {
 
       <style>{`
         .all-stories-page {
-          max-width: 1200px;
-          margin: 0 auto;
-          padding: 2.5rem 1rem;
+          margin-top: 60px !important;
+          margin-left: 240px !important;
+          width: calc(100% - 240px) !important;
+          max-width: none !important;
+          padding: 2.5rem !important;
+          min-height: calc(100vh - 60px);
+          box-sizing: border-box;
           display: flex;
           flex-direction: column;
           gap: 2rem;
           font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+        }
+
+        @media (max-width: 1024px) {
+          .all-stories-page {
+            margin-left: 70px !important;
+            width: calc(100% - 70px) !important;
+          }
         }
 
         .stories-header {
