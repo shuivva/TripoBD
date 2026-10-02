@@ -5,6 +5,7 @@ import GuideNavigation from './components/GuideNavigation'
 import AdminNavigation from './components/AdminNavigation'
 import { useLocation } from 'react-router-dom'
 import Footer from './components/Footer'
+import TravelerFooter from './components/TravelerFooter'
 import Home from './pages/Home'
 import Discover from './pages/Discover'
 import DestinationDetail from './pages/DestinationDetail'
@@ -112,7 +113,7 @@ function App() {
 
         <Route path="*" element={<NotFound />} />
       </Routes>
-      <Footer />
+      <FooterSelector />
     </BrowserRouter>
   )
 }
@@ -129,6 +130,14 @@ function NavSelector() {
     return <AdminNavigation />
   }
   return <Navigation />
+}
+
+function FooterSelector() {
+  const location = useLocation()
+  if (location.pathname.startsWith('/traveler')) {
+    return <TravelerFooter />
+  }
+  return <Footer />
 }
 
 export default App

@@ -1,0 +1,397 @@
+\documentclass[10pt,twocolumn,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage{balance}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=blue!70!black,
+    urlcolor=blue!70!black
+}
+
+\begin{document}
+
+% =========================================================================
+% PAGE 1: STANDALONE COVER / TITLE PAGE
+% Only Title, Author Block (4 authors with ID and email), Dept & Univ at bottom
+% =========================================================================
+\begin{titlepage}
+    \centering
+    \vspace*{1.5cm}
+
+    % TITLE
+    {\Huge \textbf{Engineering Defense-in-Depth for\\[0.35cm] Collaborative Web Platforms}}\\[0.6cm]
+    {\LARGE \textbf{A Comprehensive Security Literature Review and}\\[0.25cm]
+    \textbf{Architectural Analysis for TripoBD}}\par
+
+    \vspace{0.8cm}
+    \noindent\rule{0.85\textwidth}{1.2pt}\par
+    \vspace{0.4cm}
+    {\large \textsc{Capstone Research Paper \quad$\vert$\quad Computer Security}}\par
+    \vspace{0.4cm}
+    \noindent\rule{0.85\textwidth}{1.2pt}\par
+
+    % 4 AUTHORS BLOCK (2x2 Grid with Name, Student ID, and Email)
+    \vspace{2.8cm}
+    \begin{center}
+    \begin{tabular}{p{0.45\textwidth} p{0.45\textwidth}}
+        \centering
+        {\large \textbf{Author 1 Name}}\\[0.15cm]
+        \textbf{Student ID:} 011 201 001\\[0.1cm]
+        \texttt{author1@university.edu}
+        &
+        \centering
+        {\large \textbf{Author 2 Name}}\\[0.15cm]
+        \textbf{Student ID:} 011 201 002\\[0.1cm]
+        \texttt{author2@university.edu}
+        \\[2.2cm]
+        \centering
+        {\large \textbf{Author 3 Name}}\\[0.15cm]
+        \textbf{Student ID:} 011 201 003\\[0.1cm]
+        \texttt{author3@university.edu}
+        &
+        \centering
+        {\large \textbf{Author 4 Name}}\\[0.15cm]
+        \textbf{Student ID:} 011 201 004\\[0.1cm]
+        \texttt{author4@university.edu}
+    \end{tabular}
+    \end{center}
+
+    % UNIVERSITY & DEPARTMENT NAME AT BOTTOM OF PAGE
+    \vfill
+    {\Large \textbf{Department of Computer Science and Engineering}}\\[0.25cm]
+    {\LARGE \textbf{[University Name]}}\\[0.35cm]
+    {\large Course: Computer Security (CSE Capstone Evaluation) \quad$\vert$\quad Academic Session: 2026}\par
+    \vspace*{1.2cm}
+\end{titlepage}
+
+\clearpage
+\setcounter{page}{1}
+
+% =========================================================================
+% PAGE 2 ONWARDS: ABSTRACT AND MAIN CONTENT
+% =========================================================================
+\twocolumn[
+  \begin{@twocolumnfalse}
+    \begin{center}
+      {\LARGE \textbf{Engineering Defense-in-Depth for Collaborative Web Platforms:\\A Comprehensive Literature Review and Security Architectural Analysis for TripoBD}\par}
+      \vspace{1.2em}
+    \end{center}
+    \begin{abstract}
+    \noindent Modern collaborative web platforms operate at the convergence of single-page frontends, RESTful microservices, real-time communication channels, asynchronous task queues, and external artificial intelligence engines. This structural complexity drastically expands the attack surface, exposing systems to credential stuffing, Cross-Site Scripting (XSS), Insecure Direct Object References (IDOR), API resource depletion, server-side code execution, and data-at-rest exfiltration. Perimeter-centric defenses fail in these distributed environments, necessitating the adoption of Defense-in-Depth (DiD) and NIST SP 800-207 Zero Trust Architectures (ZTA). This paper presents an exhaustive academic literature review evaluating nine critical security controls mapped across eight foundational security domains: (1) Identity \& Multi-Factor Authentication via RFC 6238 TOTP, (2) Hardened Token-Based Session Management with Refresh Token Rotation and HttpOnly boundary isolation, (3) Object-Level Access Control and IDOR mitigation via RFC 4122 UUIDv4 identifiers, (4) Algorithmic API Rate Limiting and Anti-Brute-Force defense, (5) Non-Repudiation, Forensic Telemetry, and Temporal Audit Logging, (6) End-to-End Encryption (E2EE) using the W3C Web Cryptography API and AES-GCM-256, (7) Browser Policy Hardening via Content Security Policy (CSP Level 3) and HTTP strict transport controls, (8) Zero-Trust File Ingestion with magic-byte verification, EXIF stripping, and ClamAV streaming, and (9) Field-Level Encryption (FLE) for Personally Identifiable Information (PII). We synthesize empirical findings from the TripoBD travel ecosystem---where Features 3, 4, and 5 have been engineered, deployed, and verified---and present a formalized, peer-reviewed blueprint for the remaining roadmap controls.
+    \end{abstract}
+    \vspace{1.5em}
+  \end{@twocolumnfalse}
+]
+
+\section{Introduction and Theoretical Framework}
+Web application architectures have transitioned from centralized server-rendered monolithic frameworks toward distributed ecosystems characterized by Single-Page Applications (SPAs) communicating via asynchronous RESTful APIs, WebSockets, and external microservice dependencies~\cite{de2014security}. In domain-specific collaborative environments, such as the TripoBD travel platform, this architectural model mediates critical interactions including multi-user group itineraries (Tour Rooms), location-sensitive logistical coordination, peer-to-peer messaging, service provider bookings, identity verification pipelines, and artificial intelligence-driven recommendation engines.
+
+However, the expansion of user-driven dynamism directly amplifies systemic vulnerabilities. The Open Web Application Security Project (OWASP) Top 10~\cite{owasp_top10_2021} and OWASP API Security Top 10~\cite{owasp_api_2023} consistently identify Broken Access Control, Cryptographic Failures, Injection, Insecure Design, and Security Misconfiguration as primary exploit categories compromising enterprise web applications.
+
+\subsection{Foundational Security Axioms}
+To build resilient web systems, security must not be treated as an external perimeter wrapper but as an intrinsic structural property. This review is grounded in three foundational security paradigms:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Saltzer and Schroeder's Design Principles}~\cite{saltzer1975protection}: Emphasizing \textit{Economy of Mechanism}, \textit{Fail-Safe Defaults}, \textit{Complete Mediation} (every access to every object must be verified), \textit{Least Privilege}, and \textit{Psychological Acceptability}.
+    \item \textbf{NIST Zero Trust Architecture (ZTA, SP 800-207)}~\cite{nist_sp800_207}: Premised on the core axiom ``Never Trust, Always Verify.'' In a Zero Trust web environment, network locality does not imply trust; all communication channels, API parameters, database entities, and client-submitted tokens are treated as hostile until authenticated and authorized.
+    \item \textbf{Defense-in-Depth (DiD)}: Implementing nested, redundant defensive layers such that the breach of any single control (e.g., an XSS script injection in the browser DOM) is mitigated by subsequent layers (e.g., HttpOnly cookie boundaries, Content Security Policy, and strict object-level access controls).
+\end{enumerate}
+
+\subsection{The TripoBD Security Mandate}
+The TripoBD platform (engineered on Django REST Framework, Vite React, and MySQL) processes high-consequence traveler and provider assets: National Identity (NID) cards, financial payment credentials, GPS tracking data, and private tour deliberations. Prior to security hardening, the platform exhibited structural exposures shared by typical rapid-development web frameworks: sequential auto-incrementing database identifiers, unprotected API endpoints susceptible to brute-forcing, lack of historical auditability, cleartext database persistence, and browser-accessible token storage. 
+
+To resolve these vulnerabilities, a nine-feature security roadmap was established. This paper reviews the underlying literature, theoretical mechanics, and comparative state-of-the-art across all nine controls, examining both the three completed/verified features (F-03, F-04, F-05) and the active implementation roadmap (F-01, F-02, F-06, F-07, F-08, F-09).
+
+\section{Domain 1: Multi-Factor Authentication and Identity Verification (Feature 1)}
+User authentication represents the primary barrier guarding digital identity. The literature underscores the vulnerability of single-factor password mechanisms: Bonneau et al.~\cite{bonneau2012quest} demonstrated that human memory limits invariably force password reuse, making credentials vulnerable to automated dictionary guessing, credential stuffing, and phishing campaigns.
+
+\subsection{Vulnerabilities of Telephony-Based Out-of-Band Verification}
+While out-of-band Short Message Service (SMS) verification emerged as an early second factor, modern threat models recognize severe vulnerabilities in telephony routing. Grassi et al. in NIST SP 800-63B~\cite{nist_sp800_63b} explicitly deprecate SMS-based OTP as a restricted authenticator due to Signaling System 7 (SS7) interception attacks, SIM-swapping fraud, and real-time reverse proxy phishing (e.g., Modlishka, Evilginx2).
+
+\subsection{Algorithmic Foundation of RFC 6238 TOTP}
+To achieve cryptographically secure, device-bound multi-factor authentication without external network dependencies, M'Raihi et al.~\cite{mraihi2011totp} formalized the Time-Based One-Time Password (TOTP) algorithm in RFC 6238, extending the HMAC-based One-Time Password (HOTP) specification.
+
+TOTP replaces the event counter of HOTP with a discrete time step derived from Unix Epoch time:
+\begin{equation}
+T = \left\lfloor \frac{\text{UnixTime} - T_0}{X} \right\rfloor
+\end{equation}
+where $T_0$ is the epoch start offset (typically 0), and $X$ represents the time-step window (standardized at 30 seconds). The resulting 64-bit integer $T$ is hashed with a cryptographically shared secret key $K$ (distributed during enrollment via Base32-encoded \texttt{otpauth://} URI QR codes):
+\begin{equation}
+\text{HS} = \text{HMAC-SHA-1}(K, T)
+\end{equation}
+Dynamic truncation is applied to extract a 4-byte string based on the low-order 4 bits of $\text{HS}[19]$:
+\begin{equation}
+\text{Offset} = \text{HS}[19] \ \& \ \text{0x0F}
+\end{equation}
+\begin{equation}
+\text{P} = \text{HS}[\text{Offset} \dots \text{Offset}+3] \ \& \ \text{0x7FFFFFFF}
+\end{equation}
+\begin{equation}
+\text{TOTP} = \text{P} \pmod{10^d}
+\end{equation}
+where $d \in \{6, 8\}$ denotes the code length. The server evaluates $\text{TOTP}$ across time intervals $T-1, T, T+1$ to tolerate clock drift while strictly invalidating used codes to prevent replay attacks.
+
+\subsection{State Machine Escalation in REST Architectures}
+In stateless REST environments, implementing TOTP requires a two-phase authentication handshake. Upon validation of primary credentials, the backend generates an ephemeral, cryptographically signed pre-authentication token with restricted scope (\texttt{scope: "2fa\_pending"}) and low expiration lifetime ($t < 300\text{s}$). The full authorization context (e.g., JWT access/refresh pair) is minted exclusively upon presentation of a valid TOTP token, enforcing strict role elevation.
+
+\section{Domain 2: Token-Based Session Management and Storage Isolation (Feature 2)}
+Web sessions represent continuous authorization state. Historically, web architectures utilized stateful server-side session stores indexed by random cookie identifiers. In modern distributed systems, stateless JSON Web Tokens (JWT, RFC 7519)~\cite{jones2015jwt} have become predominant due to zero-lookup horizontal scalability.
+
+\subsection{The SPA Storage Paradox: LocalStorage vs. HttpOnly Cookies}
+A critical security debate in web engineering centers on client-side token persistence~\cite{de2014security}. SPAs frequently store JWT bearer tokens in HTML5 Web Storage (\texttt{localStorage} or \texttt{sessionStorage}). However, as demonstrated by Lekies et al.~\cite{lekies2013domxss}, any DOM-based or Stored Cross-Site Scripting (XSS) vulnerability permits an attacker to execute arbitrary JavaScript within the document origin:
+\begin{verbatim}
+fetch("https://attacker.com/steal?token=" 
+      + localStorage.getItem("access_token"));
+\end{verbatim}
+Because Web Storage lacks contextual isolation, token exfiltration is immediate, granting attackers unauthorized session impersonation.
+
+Conversely, RFC 6265~\cite{barth2011cookie} establishes the \texttt{HttpOnly} cookie directive, instructing user agents to deny client-side scripts access to the cookie via the \texttt{Document.cookie} DOM API. When coupled with the \texttt{Secure} directive (enforcing transmission solely over TLS) and \texttt{SameSite=Lax} or \texttt{Strict} (mitigating Cross-Site Request Forgery - CSRF), the browser automatically handles token dispatch while remaining impervious to script-based exfiltration.
+
+\subsection{Refresh Token Rotation (RTR) and Token Blacklisting}
+Stateless tokens present an operational challenge: revocation before expiration is mathematically impossible without server-side state. The IETF OAuth 2.0 Security Best Current Practice~\cite{ietf_oauth_bcp} specifies Refresh Token Rotation (RTR) to mitigate token theft risks:
+\begin{enumerate}[leftmargin=*]
+    \item Access tokens are given a brief expiration horizon ($t_{\text{access}} \le 15\text{ minutes}$) and kept in transient JavaScript runtime memory (lost on tab closure).
+    \item Refresh tokens have extended lifetimes ($t_{\text{refresh}} = 7\text{ days}$) and are stored exclusively inside \texttt{HttpOnly, Secure, SameSite} cookies.
+    \item Every token refresh request consumes the existing refresh token, returns a newly minted access/refresh token pair, and immediately blacklists the consumed refresh token.
+    \item \textbf{Token Family Revocation}: If a previously consumed refresh token is presented (indicating that a malicious actor intercepted or cloned the token), the authorization server detects reuse, invalidates the entire genealogical token family, and terminates all active sessions associated with that subject.
+\end{enumerate}
+
+\section{Domain 3: Object-Level Access Control and IDOR Mitigation (Feature 3)}
+\label{sec:idor}
+Broken Access Control ranks as the number-one security vulnerability in the OWASP Top 10~\cite{owasp_top10_2021}. In RESTful API architectures, Insecure Direct Object References (IDOR) occur when an application exposes a reference to an internal implementation object (such as a database key) in URLs or request payloads without verifying whether the requesting user possesses authorization to access or mutate that specific entity.
+
+\subsection{Access Control Paradigms: DAC, RBAC, and ABAC}
+Classical access control literature categorizes mechanisms into:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Role-Based Access Control (RBAC)}~\cite{sandhu1996role}: Permissions are assigned to predefined administrative roles (e.g., Traveler, Service Provider, Admin). While effective for vertical authorization, RBAC is incapable of resolving horizontal authorization: a Traveler should not access another Traveler's personal booking, even though both hold the same role.
+    \item \textbf{Attribute-Based Access Control (ABAC)}~\cite{hu2014guide}: Access rights are evaluated dynamically through Boolean rules over subject attributes, resource attributes, environmental context, and object ownership. In collaborative platforms, horizontal access requires checking object-level ownership predicates:
+    \begin{equation}
+    \text{Permit}(S, O, A) \iff (S.\text{id} = O.\text{owner\_id}) \lor S.\text{is\_staff}
+    \end{equation}
+\end{itemize}
+
+\subsection{Entropy and Predictability of Identifiers}
+Sequential integer primary keys (\texttt{id} = 1, 2, 3\dots) introduce critical vulnerabilities. They exhibit zero entropy, allowing automated enumeration scripts to crawl platform assets via sequential parameter incrementation ($O(N)$ scraping complexity). Furthermore, predictable sequential IDs leak sensitive business intelligence regarding transaction volume and user acquisition rates.
+
+Leach et al.~\cite{leach2005uuid} established the RFC 4122 standard for Universally Unique Identifiers (UUIDs). A version 4 UUID comprises 128 bits, containing 122 bits of cryptographically secure pseudorandom entropy. The probability $P$ of a collision between $n$ randomly generated UUIDv4 keys is approximated via the birthday paradox:
+\begin{equation}
+P(n) \approx 1 - e^{-\frac{n^2}{2 \times 2^{122}}} \approx \frac{n^2}{2^{123}}
+\end{equation}
+To achieve a one-in-a-billion collision chance ($10^{-9}$), an application would need to generate over 103 trillion UUIDs. Consequently, replacing sequential integers with UUIDv4 completely eliminates enumeration attacks, preventing attackers from predicting entity references.
+
+\subsection{Complete Mediation and Scoped Querysets}
+Saltzer and Schroeder's \textit{Complete Mediation} principle requires that authorization is verified at every layer. Relying solely on URL route-level middleware is fragile. Modern secure engineering mandates \textbf{User-Scoped Queryset Filtering} at the database ORM layer:
+\begin{verbatim}
+def get_queryset(self):
+    return Booking.objects.filter(
+        Q(customer=self.request.user) |
+        Q(service_provider__user=self.request.user)
+    )
+\end{verbatim}
+By scoping database execution to the authenticated principal, attempts to query unauthorized UUIDs or IDs result in HTTP 404 (Not Found) or HTTP 403 (Forbidden), preventing information leakage.
+
+\section{Domain 4: API Rate Limiting and Resource Preservation (Feature 4)}
+\label{sec:ratelimit}
+Web APIs are vulnerable to automated resource exhaustion, credential stuffing, and brute-force dictionary attacks. Unrestricted resource consumption is formally categorized as OWASP API4:2023~\cite{owasp_api_2023}. In applications integrating third-party generative artificial intelligence APIs (e.g., Google Gemini in TripoBD), unthrottled endpoints present severe financial denial-of-wallet (DoW) risks alongside server CPU exhaustion.
+
+\subsection{Algorithmic Analysis of Throttling Paradigms}
+Computer networking literature presents several rate-limiting algorithms:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Token Bucket}: Tokens accumulate in a bucket at a sustained rate $r$ up to capacity $b$. Requests consume tokens; bursts are permitted up to $b$.
+    \item \textbf{Leaky Bucket}: Requests enter a FIFO queue and leak at a constant rate, smoothing bursty traffic into uniform flow.
+    \item \textbf{Fixed Window Counter}: Tracks request counts within discrete temporal windows (e.g., $[0, 60\text{s}]$). Suffers from the \textit{boundary burst flaw}, where twice the allowed limit can execute across window boundaries (e.g., at $t=59\text{s}$ and $t=61\text{s}$).
+    \item \textbf{Sliding Window Counter}: Computes a weighted estimate of request frequency combining the current window and previous window:
+    \begin{equation}
+    C = C_{\text{current}} + C_{\text{previous}} \times \left(1 - \frac{t - t_{\text{start}}}{W}\right)
+    \end{equation}
+    where $W$ is window width. This completely neutralizes boundary spikes with minimal memory overhead.
+\end{enumerate}
+
+\subsection{Protocol-Level Signaling: RFC 6585 HTTP 429}
+Nottingham and Fielding~\cite{nottingham2012http429} formalized HTTP status code \texttt{429 Too Many Requests} in RFC 6585. Modern API design mandates returning standard headers informing clients of rate limits and replenishment latency:
+\begin{verbatim}
+HTTP/1.1 429 Too Many Requests
+Retry-After: 37
+X-RateLimit-Limit: 5
+X-RateLimit-Remaining: 0
+\end{verbatim}
+Clients must observe the \texttt{Retry-After} header and apply exponential backoff with randomized jitter to prevent thundering herd spikes.
+
+\section{Domain 5: Non-Repudiation, Forensic Telemetry, and Temporal Auditing (Feature 5)}
+\label{sec:audit}
+Information security models require the guarantee of \textit{Non-Repudiation}: ensuring that an entity cannot deny the authenticity of an action or transaction performed on the system. NIST SP 800-92~\cite{nist_sp800_92} specifies guidelines for computer security log management, defining audit records as essential evidence for incident response, threat detection, and forensic reconstruction.
+
+\subsection{Limitations of Single-State Relational Systems}
+Conventional Relational Database Management Systems (RDBMS) maintain only the \textit{latest state} of an entity via destructive \texttt{UPDATE} and \texttt{DELETE} operations. If a threat actor or compromised internal user modifies a booking status, alters bank account details, or marks an unverified guide as verified, all preceding states are overwritten. Post-incident forensics cannot determine:
+\begin{itemize}[leftmargin=*]
+    \item The temporal instant the alteration occurred ($t$).
+    \item The authenticated principal responsible ($\text{Actor}$).
+    \item The exact delta of changed fields ($\Delta(S_{\text{old}}, S_{\text{new}})$).
+    \item The network provenance (Client IP, User Agent).
+\end{itemize}
+
+\subsection{Temporal Table Architecture and Signal Telemetry}
+To solve this gap without compromising relational integrity, modern systems employ Slowly Changing Dimensions (SCD Type 4) or Temporal Tables. Libraries like \texttt{django-simple-history} shadow primary tables with append-only historical mirrors:
+\begin{equation}
+\mathcal{H}(E) = \{ (e_{\text{id}}, \mathbf{attr}_1, \dots, \mathbf{attr}_k, \text{type}, \text{timestamp}, \text{user}) \}
+\end{equation}
+Every mutation triggers an atomic database write capturing complete state snapshots and delta diffs.
+
+Concurrently, application-level security telemetry intercepts authentication lifecycle signals (\texttt{login\_success}, \texttt{login\_failed}, \texttt{logout}). Intercepted events are written to an append-only \texttt{SecurityAuditLog} capturing the attempted identifier, client IP, user agent, and failure reason. This data provides immediate visibility into brute-force distributed attacks and supports automated SIEM ingestion.
+
+\section{Domain 6: End-to-End Cryptography in Web Applications (Feature 6)}
+Collaborative applications frequently exchange sensitive personal communications (tour room logistical chats, travel schedules, direct guide negotiations). While Transport Layer Security (TLS 1.3)~\cite{diffie1976new} encrypts data in transit between client and server, the server maintains access to plaintext, exposing data to insider threats, subpoena exfiltration, and database dump leaks.
+
+\subsection{The Untrusted Server and Zero-Knowledge Paradigm}
+To achieve mathematical confidentiality, systems implement \textbf{End-to-End Encryption (E2EE)} under the Zero-Knowledge Server model. In this architecture, cryptographic key generation, encryption, and decryption occur strictly on client endpoints. The backend server acts merely as a blind ciphertext relay and persistence buffer, never possessing decryption keys.
+
+\subsection{W3C Web Cryptography API and AES-GCM-256}
+Historically, executing cryptography in web browsers was considered hazardous due to pseudo-random number generator (PRNG) predictability and timing side-channels in interpreted JavaScript. The W3C Web Cryptography API~\cite{w3c_webcrypto} resolved these concerns by exposing native, hardware-accelerated cryptographic primitives directly through \texttt{window.crypto.subtle}.
+
+The gold standard for authenticated symmetric encryption is Advanced Encryption Standard in Galois/Counter Mode (AES-GCM) with a 256-bit key, standardized in NIST SP 800-38D~\cite{nist_sp800_38d}:
+\begin{equation}
+C, T = \text{AES-GCM-256}(K, \text{IV}, P, \text{AAD})
+\end{equation}
+AES-GCM operates as an Authenticated Encryption with Associated Data (AEAD) cipher. It simultaneously guarantees:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Confidentiality}: Counter-mode encryption prevents plaintext exposure.
+    \item \textbf{Integrity and Authenticity}: The Galois Field multiplication tag ($T$) guarantees that any tampering or ciphertext bit-flipping during transit or storage causes immediate decryption failure.
+\end{enumerate}
+Unique, non-repeating 96-bit Initialization Vectors (IVs) are generated for every message using cryptographically secure random values (\texttt{crypto.getRandomValues()}) and stored alongside the ciphertext in the backend database:
+\begin{equation}
+\text{Record} = \{ \text{room\_id}, \text{sender\_id}, \text{IV}_{\text{base64}}, C_{\text{base64}}, \text{timestamp} \}
+\end{equation}
+
+\section{Domain 7: Browser Policy Hardening and Injection Defense (Feature 7)}
+The browser security model relies primarily on the Same-Origin Policy (SOP). However, SOP does not prevent an application from executing malicious scripts injected into its own origin through Reflected, Stored, or DOM-based XSS~\cite{lekies2013domxss}.
+
+\subsection{Content Security Policy (W3C CSP Level 3)}
+Content Security Policy (CSP), formalized in W3C CSP Level 3~\cite{w3c_csp3}, provides a declarative mechanism allowing server operators to define a strict whitelist of valid sources from which the browser is permitted to load dynamic resources (scripts, styles, images, frames, fonts). Calzavara et al.~\cite{calzavara2020csp} proved that rigorous CSP deployment effectively neutralizes script injection exploits.
+
+A hardened CSP eliminates dangerous JavaScript idioms (\texttt{eval()}, \texttt{setTimeout(string)}) by omitting \texttt{'unsafe-eval'} and blocks inline script execution by omitting \texttt{'unsafe-inline'}. Legitimate external CDNs essential to the TripoBD travel platform are selectively whitelisted:
+\begin{verbatim}
+Content-Security-Policy: 
+  default-src 'self'; 
+  script-src 'self' https://maps.googleapis.com; 
+  style-src 'self' 'unsafe-inline' 
+            https://fonts.googleapis.com; 
+  img-src 'self' data: https://res.cloudinary.com; 
+  connect-src 'self' https://maps.googleapis.com;
+\end{verbatim}
+
+\subsection{Complementary Defensive HTTP Headers}
+A robust defense-in-depth posture combines CSP with complementary HTTP security headers:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{HTTP Strict Transport Security (HSTS, RFC 6797)}~\cite{hodges2012hsts}: Informs browsers that the domain must only be accessed via HTTPS. Directives \texttt{max-age=31536000; includeSubDomains} eliminate SSL-stripping and man-in-the-middle downgrade attacks.
+    \item \textbf{X-Frame-Options: DENY}: Prevents clickjacking and UI redressing attacks by forbidding malicious third-party websites from framing TripoBD inside transparent \texttt{<iframe>} elements.
+    \item \textbf{X-Content-Type-Options: nosniff}: Instructs user agents to strictly respect MIME types declared in the \texttt{Content-Type} header, defeating MIME-confusion attacks where benign files (e.g., images) are interpreted as executable scripts.
+\end{itemize}
+
+\section{Domain 8: Secure File Ingestion and Data-at-Rest Privacy (Features 8 \& 9)}
+
+\subsection{Zero-Trust File Upload Validation and Antivirus Pipelines (Feature 8)}
+Unrestricted file upload is categorized as a critical injection vulnerability (OWASP A03:2021)~\cite{owasp_top10_2021}. Collaborative travel platforms routinely ingest user uploads: profile photos, destination reviews, travel receipts, and identity documents (National ID card scans, guide certifications).
+
+Attackers exploit permissive upload handlers using several attack vectors:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Polyglot Executable Uploads}: Masking PHP, JSP, or Python webshell scripts with image extensions (e.g., \texttt{shell.php.jpg}) to induce Remote Code Execution (RCE).
+    \item \textbf{MIME-Spoofing}: Modifying the client-controlled HTTP \texttt{Content-Type} header to bypass trivial string filters.
+    \item \textbf{EXIF Geolocation De-anonymization}: Unsanitized digital camera uploads retain Exchangeable Image File Format (EXIF) metadata, exposing GPS coordinates, camera serial numbers, and capture timestamps of travelers, violating physical privacy.
+    \item \textbf{Path Traversal}: Exploiting filenames containing relative directory specifiers (e.g., \texttt{../../etc/cron.d/malware}) to overwrite critical system files.
+\end{enumerate}
+
+\noindent\textbf{Defensive Validation Architecture}: Zero-Trust ingestion enforces a multi-tier sanitization pipeline:
+\begin{itemize}[leftmargin=*]
+    \item \textit{Magic Byte Signature Inspection}: Utilizes \texttt{libmagic} to read the initial 2048 file bytes, verifying binary file signatures (e.g., \texttt{\textbackslash x89PNG} for PNG, \texttt{\textbackslash xFF\textbackslash xD8\textbackslash xFF} for JPEG, \texttt{\%PDF-} for PDF) regardless of client extension claims.
+    \item \textit{Cryptographic Key Renaming}: Strips all original filenames, replacing them with random UUIDv4 strings (\texttt{uuid.uuid4().hex}) before persistence, preventing path traversal and file collisions.
+    \item \textit{EXIF Stripping and Re-encoding}: Opens image byte streams via imaging libraries (e.g., Pillow), extracts raw pixel buffers, and reconstructs images to strip metadata while mitigating image-decompression bomb vulnerabilities.
+    \item \textit{Streaming Antivirus Daemon Scanning}: Passes byte streams to daemonized virus scanning engines (e.g., ClamAV \texttt{clamd.scan\_stream()}) to detect known malware signatures prior to permanent storage.
+\end{itemize}
+
+\subsection{Field-Level Encryption for Personally Identifiable Information (Feature 9)}
+Database storage security is categorized under Cryptographic Failures (OWASP A02:2021)~\cite{owasp_top10_2021}. Relational databases often store Personally Identifiable Information (PII)---including phone numbers, national identification numbers, passport scans, and banking payout details---in plaintext.
+
+While Transparent Data Encryption (TDE) and Full Disk Encryption (FDE) protect data against physical hard drive theft, they offer \textit{zero protection} against database-level threats: SQL injection vulnerabilities, leaked database backups (\texttt{.sql} dumps), compromised database management credentials, and malicious database administrators.
+
+\noindent\textbf{Application-Layer / Field-Level Encryption (FLE)}: FLE addresses this vulnerability by encrypting sensitive attributes before database persistence, as formalized in NIST SP 800-57~\cite{nist_sp800_57}. Using symmetric envelope encryption (AES-256 in CBC or GCM mode with HMAC-SHA256 integrity tags):
+\begin{equation}
+\text{StoredCipher} = \text{Base64}(\text{Salt} \mathbin{\Vert} \text{IV} \mathbin{\Vert} \text{AES-256}(K_{\text{master}}, P) \mathbin{\Vert} \text{HMAC})
+\end{equation}
+The master cryptographic key $K_{\text{master}}$ is isolated outside the database environment (injected via secured environment variables or dedicated Key Management Services such as AWS KMS or HashiCorp Vault). In the event of a full database leak or SQL injection dump, attacker extraction reveals only mathematically indecipherable ciphertext, satisfying the stringent privacy mandates of GDPR Article 32 and international data protection acts.
+
+\section{Comparative Synthesis and Analytical Matrix}
+Table~\ref{tab:matrix} provides a comparative taxonomy of the nine security features evaluated across the TripoBD platform, summarizing core cryptographic primitives, targeted threat vectors, architectural tiers, and implementation status.
+
+\begin{table*}[t]
+\centering
+\small
+\caption{TripoBD Defense-in-Depth Security Controls: Comparative Literature and Implementation Matrix}
+\label{tab:matrix}
+\begin{tabularx}{\textwidth}{l p{3.2cm} p{3.6cm} p{2.4cm} l l}
+\toprule
+\textbf{Ref} & \textbf{Security Control} & \textbf{Primary Threat Vectors} & \textbf{Core Primitives / RFC} & \textbf{Enforcement Layer} & \textbf{Status in TripoBD} \\
+\midrule
+F-01 & TOTP Multi-Factor Auth & Credential stuffing, account takeover & RFC 6238, HMAC-SHA1 & Auth API / React & Roadmap (Phase 2) \\
+F-02 & Hardened JWT \& RTR & Token theft via XSS, session hijack & RFC 7519, RFC 6749, HttpOnly & Cookie / DRF Filter & Roadmap (Phase 1) \\
+F-03 & Object Access \& IDOR & Horizontal data tampering, scraping & RFC 4122 UUIDv4, ABAC & ORM / DRF ViewSet & \textbf{Implemented \& Verified} \\
+F-04 & Rate Limiting \& Throttling & Brute-force, OTP flooding, DoS & Sliding Window, RFC 6585 & DRF Throttling / Cache & \textbf{Implemented \& Verified} \\
+F-05 & Audit Logging \& Monitoring & Repudiation, undetected tampering & NIST SP 800-92, SCD Type 4 & ORM / Signal Handlers & \textbf{Implemented \& Verified} \\
+F-06 & End-to-End Encrypted Chat & Server eavesdropping, DB leaks & Web Crypto API, AES-GCM-256 & Browser Client / DB & Roadmap (Phase 3) \\
+F-07 & CSP \& Security Headers & Script injection, Clickjacking, sniffing & W3C CSP Level 3, RFC 6797 & HTTP Middleware & Roadmap (Phase 2) \\
+F-08 & Zero-Trust File Ingestion & Remote Code Execution (RCE), EXIF & Magic Bytes, ClamAV, Pillow & Ingestion Pipeline & Roadmap (Phase 1) \\
+F-09 & Field-Level PII Encryption & Plaintext DB dump exfiltration & AES-256-CBC/GCM, NIST 800-57 & Model ORM / KMS & Roadmap (Phase 2) \\
+\bottomrule
+\end{tabularx}
+\end{table*}
+
+\section{TripoBD Implementation Analysis: Verified Controls and Roadmap}
+
+\subsection{Empirical Analysis of Verified Controls}
+During recent platform development, the TripoBD security team implemented and empirically verified Features 3, 4, and 5:
+
+\subsubsection{Feature 3 (IDOR Elimination \& UUID Migration)}
+As documented in Section~\ref{sec:idor}, the platform eliminated sequential integer primary key exposure by introducing 128-bit UUIDv4 attributes to all core business models: \texttt{ServiceProviderBooking}, \texttt{TourRoom}, \texttt{ServiceProvider}, \texttt{TripStory}, \texttt{OpenTourGroup}, and \texttt{CommunityPost}. A zero-downtime database migration (\texttt{0013\_uuid\_fields.py}) populated unique identifiers for historical records while preserving referential integrity. DRF ModelViewSets were mounted with strict object-level permissions (\texttt{IsOwnerOrReadOnly}, \texttt{IsTourRoomMember}, \texttt{IsBookingParticipant}, \texttt{IsOwnerOnly}) and scoped database querysets. Dual-resolution resolvers were deployed to maintain backward compatibility with legacy endpoints.
+
+\subsubsection{Feature 4 (Algorithmic Rate Limiting)}
+API resource abuse protection was achieved via custom DRF throttling classes backed by Django's high-speed cache engine. Endpoint-specific throttling tiers were enforced:
+\begin{itemize}[leftmargin=*]
+    \item \texttt{LoginRateThrottle}: Restricts authentication attempts to 5 requests/minute per client IP.
+    \item \texttt{OTPRateThrottle}: Restricts OTP verification to 3 requests/minute keyed against a composite tuple of client IP and target email.
+    \item \texttt{AIGenerationRateThrottle}: Limits computationally demanding Google Gemini travel itinerary generation to 10 requests/hour per authenticated user.
+\end{itemize}
+Verification tests confirmed that exceeding limits immediately triggers HTTP 429 with RFC 6585-compliant \texttt{Retry-After} headers.
+
+\subsubsection{Feature 5 (Audit Logging \& Historical Records)}
+Non-repudiation and forensic telemetry were implemented via dual mechanisms:
+\begin{enumerate}[leftmargin=*]
+    \item \textit{Historical Versioning}: Model tracking via \texttt{django-simple-history} was attached to \texttt{UserProfile}, \texttt{ServiceProvider}, \texttt{ServiceProviderBooking}, and \texttt{AccountSettings}, recording immutable delta diffs and user attribution for every data mutation.
+    \item \textit{Authentication Event Telemetry}: Django signals (\texttt{user\_logged\_in}, \texttt{user\_login\_failed}, \texttt{user\_logged\_out}) were wired to an append-only \texttt{SecurityAuditLog} table, automatically capturing attempted usernames, timestamps, client IP addresses, and User-Agent headers.
+\end{enumerate}
+
+\subsection{Roadmap for Remaining Controls}
+The remaining six controls will be deployed in prioritized phases:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Phase 1 (Immediate - High Risk)}: Feature 2 (Hardened JWT with HttpOnly cookies and RTR) and Feature 8 (Zero-Trust File Upload Validation).
+    \item \textbf{Phase 2 (Core Security)}: Feature 1 (TOTP 2FA), Feature 7 (Content Security Policy \& HTTP Security Headers), and Feature 9 (Field-Level PII Encryption).
+    \item \textbf{Phase 3 (Advanced Privacy)}: Feature 6 (End-to-End Encrypted Tour Room Chat via Web Cryptography API).
+\end{itemize}
+
+\section{Conclusion and Future Research Directions}
+This literature review establishes a theoretical and architectural framework for securing modern collaborative web platforms. By replacing legacy perimeter assumptions with the rigorous axioms of Saltzer and Schroeder, NIST Zero Trust Architecture, and multi-layered Defense-in-Depth, platforms can achieve mathematical resilience against modern threat vectors. The successful engineering and verification of Object-Level Authorization (F-03), Rate Limiting (F-04), and Forensic Audit Logging (F-05) within TripoBD provides an empirical foundation for completing the remaining security controls.
+
+Future research will explore passwordless authentication via the FIDO2/WebAuthn standard (Passkeys) and evaluate the performance impact of Post-Quantum Cryptography (PQC) algorithms (such as NIST ML-KEM and ML-DSA) on client-side web application cryptography.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

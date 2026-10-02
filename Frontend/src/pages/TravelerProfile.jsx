@@ -623,15 +623,22 @@ export default function TravelerProfile() {
                 </select>
               </div>
 
-              <label className="toggle-checkbox-row">
-                <input
-                  type="checkbox"
-                  name="two_factor_enabled"
-                  checked={accountSettings.two_factor_enabled || false}
-                  onChange={handleAccountSettingsChange}
-                />
-                <span className="toggle-label-text">Enable Two-Factor Authentication (2FA)</span>
-              </label>
+              <div className="toggle-checkbox-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0' }}>
+                <div>
+                  <span className="toggle-label-text" style={{ fontWeight: 600 }}>Two-Factor Authentication (TOTP 2FA)</span>
+                  <div style={{ fontSize: '0.8rem', color: accountSettings.two_factor_enabled || accountSettings.is_2fa_enabled ? '#16a34a' : '#64748b' }}>
+                    {accountSettings.two_factor_enabled || accountSettings.is_2fa_enabled ? '● Active (Google Authenticator / Authy)' : '○ Inactive'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  style={{ padding: '0.35rem 0.75rem', fontSize: '0.85rem' }}
+                  onClick={() => navigate('/traveler/settings')}
+                >
+                  Configure 2FA
+                </button>
+              </div>
 
               <div className="deactivation-container">
                 <label className="toggle-checkbox-row deact-row">

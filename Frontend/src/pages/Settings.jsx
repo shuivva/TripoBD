@@ -12,6 +12,10 @@ import {
   requestTravelerAccountDeletion,
   cancelTravelerAccountDeletion,
   exportTravelerData,
+  get2FASetup,
+  enable2FA,
+  disable2FA,
+  get2FAStatus,
 } from '../apiClient'
 
 export default function Settings() {
@@ -36,6 +40,14 @@ export default function Settings() {
     two_factor_enabled: false,
     deactivation_requested: false,
   })
+
+  // 2FA TOTP state
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false)
+  const [show2FASetupModal, setShow2FASetupModal] = useState(false)
+  const [twoFASetupData, setTwoFASetupData] = useState({ secret: '', qr_code: '', otpauth_url: '' })
+  const [totpVerificationCode, setTotpVerificationCode] = useState('')
+  const [twoFAActionLoading, setTwoFAActionLoading] = useState(false)
+  const [twoFAError, setTwoFAError] = useState('')
   
   // Password change
   const [passwordForm, setPasswordForm] = useState({
@@ -87,12 +99,14 @@ export default function Settings() {
   
   const loadSettings = async () => {
     try {
-      const [display, account] = await Promise.all([
+      const [display, account, status2fa] = await Promise.all([
         getTravelerDisplaySettings(userId),
         getTravelerAccountSettings(userId),
+        get2FAStatus().catch(() => ({ is_2fa_enabled: false })),
       ])
       setDisplaySettings(display)
       setAccountSettings(account)
+      setIs2FAEnabled(Boolean(status2fa?.is_2fa_enabled || account?.is_2fa_enabled || account?.two_factor_enabled))
       // Apply theme immediately on load
       applyTheme(display.theme)
       applyFontSize(display.font_size)
@@ -140,6 +154,58 @@ export default function Settings() {
       setError('Failed to update account settings')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleStart2FASetup = async () => {
+    setTwoFAActionLoading(true)
+    setTwoFAError('')
+    try {
+      const data = await get2FASetup()
+      setTwoFASetupData(data)
+      setShow2FASetupModal(true)
+    } catch (err) {
+      setTwoFAError(err.message || 'Failed to initialize 2FA setup')
+    } finally {
+      setTwoFAActionLoading(false)
+    }
+  }
+
+  const handleVerifyAndEnable2FA = async (e) => {
+    e.preventDefault()
+    if (!totpVerificationCode || totpVerificationCode.trim().length !== 6) {
+      setTwoFAError('Please enter the 6-digit code from your authenticator app')
+      return
+    }
+    setTwoFAActionLoading(true)
+    setTwoFAError('')
+    try {
+      await enable2FA(totpVerificationCode.trim())
+      setIs2FAEnabled(true)
+      setAccountSettings(prev => ({ ...prev, two_factor_enabled: true, is_2fa_enabled: true }))
+      setShow2FASetupModal(false)
+      setTotpVerificationCode('')
+      setSuccessMsg('Two-Factor Authentication (TOTP) successfully activated!')
+    } catch (err) {
+      setTwoFAError(err.message || 'Verification failed. Please check the code.')
+    } finally {
+      setTwoFAActionLoading(false)
+    }
+  }
+
+  const handleDisable2FA = async () => {
+    if (!confirm('Are you sure you want to disable Two-Factor Authentication? Your account security will be degraded.')) return
+    setTwoFAActionLoading(true)
+    setTwoFAError('')
+    try {
+      await disable2FA()
+      setIs2FAEnabled(false)
+      setAccountSettings(prev => ({ ...prev, two_factor_enabled: false, is_2fa_enabled: false }))
+      setSuccessMsg('Two-Factor Authentication disabled.')
+    } catch (err) {
+      setTwoFAError(err.message || 'Failed to disable 2FA')
+    } finally {
+      setTwoFAActionLoading(false)
     }
   }
   
@@ -395,25 +461,113 @@ export default function Settings() {
           
           {activeTab === 'security' && (
             <div className="settings-section">
-              <h3>Security</h3>
+              <h3>Security & Authentication</h3>
               
-              <div className="setting-group">
-                <label>Two-Factor Authentication</label>
-                <div className="toggle-switch">
-                  <input 
-                    type="checkbox" 
-                    checked={accountSettings.two_factor_enabled === 'true' || accountSettings.two_factor_enabled === true}
-                    onChange={(e) => setAccountSettings({...accountSettings, two_factor_enabled: e.target.checked})}
-                  />
-                  <span className="slider"></span>
+              {/* Feature 1: TOTP 2FA Management Card */}
+              <div className="two-fa-card">
+                <div className="two-fa-header">
+                  <div className="two-fa-icon">🛡️</div>
+                  <div>
+                    <h4>Two-Factor Authentication (TOTP 2FA)</h4>
+                    <p className="two-fa-desc">
+                      Add an impenetrable layer of protection to your account using Time-Based One-Time Passwords (Google Authenticator, Microsoft Authenticator, or Authy).
+                    </p>
+                  </div>
                 </div>
-                <small>Add an extra layer of security to your account</small>
-                <button className="button button-secondary" onClick={handleAccountSettingsSave} disabled={loading} style={{ marginTop: '0.5rem' }}>
-                  {loading ? 'Saving...' : 'Save 2FA Setting'}
-                </button>
+
+                <div className="two-fa-status-bar">
+                  <span className={`two-fa-badge ${is2FAEnabled ? 'badge-enabled' : 'badge-disabled'}`}>
+                    {is2FAEnabled ? '● 2FA ENABLED' : '○ 2FA DISABLED'}
+                  </span>
+                  
+                  {is2FAEnabled ? (
+                    <button 
+                      className="button button-secondary btn-danger-outline"
+                      onClick={handleDisable2FA}
+                      disabled={twoFAActionLoading}
+                    >
+                      {twoFAActionLoading ? 'Processing...' : 'Disable 2FA'}
+                    </button>
+                  ) : (
+                    <button 
+                      className="button button-primary"
+                      onClick={handleStart2FASetup}
+                      disabled={twoFAActionLoading}
+                    >
+                      {twoFAActionLoading ? 'Generating QR...' : 'Setup Two-Factor (TOTP)'}
+                    </button>
+                  )}
+                </div>
+                {twoFAError && !show2FASetupModal && (
+                  <div className="error" style={{ marginTop: '0.75rem' }}>{twoFAError}</div>
+                )}
               </div>
+
+              {/* 2FA Setup Modal */}
+              {show2FASetupModal && (
+                <div className="modal-backdrop">
+                  <div className="modal-box">
+                    <h3>Configure Authenticator App</h3>
+                    <p className="modal-subtitle">
+                      1. Scan this QR code with Google Authenticator, Authy, or Microsoft Authenticator:
+                    </p>
+
+                    {twoFASetupData.qr_code && (
+                      <div className="qr-container">
+                        <img 
+                          src={twoFASetupData.qr_code} 
+                          alt="2FA QR Code" 
+                          className="qr-image"
+                        />
+                      </div>
+                    )}
+
+                    <div className="secret-display-box">
+                      <small>Manual Entry Key:</small>
+                      <code>{twoFASetupData.secret}</code>
+                    </div>
+
+                    <form onSubmit={handleVerifyAndEnable2FA} style={{ marginTop: '1.2rem' }}>
+                      <p className="modal-subtitle">
+                        2. Enter the 6-digit verification code generated by your app:
+                      </p>
+                      {twoFAError && <div className="error" style={{ marginBottom: '0.75rem' }}>{twoFAError}</div>}
+                      <input 
+                        type="text" 
+                        maxLength={6} 
+                        placeholder="000000"
+                        className="form-control totp-input"
+                        autoFocus
+                        value={totpVerificationCode}
+                        onChange={(e) => setTotpVerificationCode(e.target.value.replace(/\D/g, ''))}
+                        required
+                      />
+                      <div className="modal-actions">
+                        <button 
+                          type="button" 
+                          className="button button-secondary"
+                          onClick={() => {
+                            setShow2FASetupModal(false)
+                            setTwoFAError('')
+                            setTotpVerificationCode('')
+                          }}
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          type="submit" 
+                          className="button button-primary"
+                          disabled={twoFAActionLoading || totpVerificationCode.length !== 6}
+                        >
+                          {twoFAActionLoading ? 'Verifying...' : 'Verify & Enable 2FA'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
               
-              <hr />
+              <hr style={{ margin: '2rem 0' }} />
               
               <h4>Change Password</h4>
               <form onSubmit={handlePasswordChange}>
@@ -888,8 +1042,138 @@ export default function Settings() {
           font-size: 18px;
         }
         
-        [data-language="bn"] {
-          font-family: 'Hind Siliguri', 'Arial', sans-serif;
+        /* 2FA Management & Modal Styles */
+        .two-fa-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 1.5rem;
+          margin-bottom: 2rem;
+        }
+        .two-fa-header {
+          display: flex;
+          gap: 1rem;
+          align-items: flex-start;
+          margin-bottom: 1.25rem;
+        }
+        .two-fa-icon {
+          font-size: 2rem;
+          line-height: 1;
+        }
+        .two-fa-card h4 {
+          margin: 0 0 0.3rem 0;
+          font-size: 1.1rem;
+          color: #0f172a;
+        }
+        .two-fa-desc {
+          margin: 0;
+          font-size: 0.9rem;
+          color: #64748b;
+          line-height: 1.4;
+        }
+        .two-fa-status-bar {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-top: 1rem;
+          border-top: 1px solid #e2e8f0;
+        }
+        .two-fa-badge {
+          font-weight: 700;
+          font-size: 0.85rem;
+          letter-spacing: 0.05rem;
+          padding: 0.35rem 0.8rem;
+          border-radius: 20px;
+        }
+        .badge-enabled {
+          background: #dcfce7;
+          color: #15803d;
+        }
+        .badge-disabled {
+          background: #f1f5f9;
+          color: #64748b;
+        }
+        .btn-danger-outline {
+          border-color: #ef4444 !important;
+          color: #dc2626 !important;
+        }
+        .btn-danger-outline:hover {
+          background: #fef2f2 !important;
+        }
+        .modal-backdrop {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 9999;
+          padding: 1rem;
+        }
+        .modal-box {
+          background: #fff;
+          border-radius: 12px;
+          padding: 2rem;
+          max-width: 440px;
+          width: 100%;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+        }
+        .modal-box h3 {
+          margin: 0 0 0.5rem 0;
+          font-size: 1.3rem;
+          color: #0f172a;
+        }
+        .modal-subtitle {
+          color: #475569;
+          font-size: 0.9rem;
+          margin-bottom: 0.75rem;
+        }
+        .qr-container {
+          display: flex;
+          justify-content: center;
+          background: #ffffff;
+          padding: 1rem;
+          border-radius: 8px;
+          border: 1px dashed #cbd5e1;
+          margin: 1rem 0;
+        }
+        .qr-image {
+          width: 180px;
+          height: 180px;
+          object-fit: contain;
+        }
+        .secret-display-box {
+          background: #f1f5f9;
+          padding: 0.6rem 0.8rem;
+          border-radius: 6px;
+          text-align: center;
+        }
+        .secret-display-box small {
+          display: block;
+          color: #64748b;
+          margin-bottom: 0.2rem;
+        }
+        .secret-display-box code {
+          font-size: 1rem;
+          font-weight: 700;
+          letter-spacing: 0.15rem;
+          color: #0284c7;
+        }
+        .totp-input {
+          font-family: monospace;
+          font-size: 1.4rem !important;
+          letter-spacing: 0.35rem;
+          text-align: center;
+          font-weight: 600;
+        }
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          margin-top: 1.5rem;
         }
       `}</style>
     </main>

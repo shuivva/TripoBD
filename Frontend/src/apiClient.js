@@ -1,6 +1,126 @@
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api'
 
+const _nativeFetch = typeof window !== 'undefined' ? window.fetch.bind(window) : globalThis.fetch
+
+// In-Memory Access Token Storage (Feature 2: Hardened JWT)
+// Access tokens remain strictly in JS memory; refresh tokens reside in HttpOnly cookies.
+let _accessToken = null
+
+export function setAccessToken(token) {
+  _accessToken = token
+}
+
+export function getAccessToken() {
+  return _accessToken
+}
+
+export function clearAccessToken() {
+  _accessToken = null
+}
+
+let _isRefreshing = false
+let _refreshSubscribers = []
+
+function onTokenRefreshed(newToken) {
+  _refreshSubscribers.forEach((cb) => cb(newToken))
+  _refreshSubscribers = []
+}
+
+function addRefreshSubscriber(cb) {
+  _refreshSubscribers.push(cb)
+}
+
+export async function refreshAccessToken() {
+  try {
+    const res = await _nativeFetch(`${API_BASE}/token/refresh/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    })
+    if (!res.ok) {
+      clearAccessToken()
+      return null
+    }
+    const data = await res.json()
+    if (data.access) {
+      setAccessToken(data.access)
+      return data.access
+    }
+    return null
+  } catch {
+    clearAccessToken()
+    return null
+  }
+}
+
+const fetch = async (url, options = {}) => {
+  const headers = { ...(options.headers || {}) }
+
+  // Automatically attach Bearer token from memory state if available
+  if (_accessToken && !headers['Authorization'] && !headers['authorization']) {
+    headers['Authorization'] = `Bearer ${_accessToken}`
+  }
+
+  const res = await _nativeFetch(url, {
+    credentials: 'include',
+    ...options,
+    headers,
+  })
+
+  // Feature 2 Interceptor: On HTTP 401 error, automatically invoke /api/token/refresh/
+  // and retry the original request with the new access token
+  const isAuthUrl =
+    url.includes('/token/refresh/') ||
+    url.includes('/auth/login/') ||
+    url.includes('/2fa/verify-login/') ||
+    url.includes('/auth/logout/')
+
+  if (res.status === 401 && !isAuthUrl) {
+    if (!_isRefreshing) {
+      _isRefreshing = true
+      const newToken = await refreshAccessToken()
+      _isRefreshing = false
+      onTokenRefreshed(newToken)
+
+      if (newToken) {
+        const retryHeaders = {
+          ...(options.headers || {}),
+          Authorization: `Bearer ${newToken}`,
+        }
+        return _nativeFetch(url, {
+          credentials: 'include',
+          ...options,
+          headers: retryHeaders,
+        })
+      }
+    } else {
+      // Queue request until ongoing refresh finishes
+      return new Promise((resolve) => {
+        addRefreshSubscriber(async (newToken) => {
+          if (newToken) {
+            const retryHeaders = {
+              ...(options.headers || {}),
+              Authorization: `Bearer ${newToken}`,
+            }
+            resolve(
+              _nativeFetch(url, {
+                credentials: 'include',
+                ...options,
+                headers: retryHeaders,
+              })
+            )
+          } else {
+            resolve(res)
+          }
+        })
+      })
+    }
+  }
+
+  return res
+}
+
 function parseApiError(data, fallback = 'Request failed') {
   if (!data) return fallback
   if (typeof data.error === 'string') return data.error
@@ -55,7 +175,11 @@ export async function getTravelerProfile(userId) {
 
 export async function getTravelerDashboard(userId) {
   const res = await fetch(`${API_BASE}/traveler/dashboard/${userId}/`)
-  if (!res.ok) throw new Error('Failed to load traveler dashboard')
+  if (!res.ok) {
+    const error = new Error('Failed to load traveler dashboard')
+    error.status = res.status
+    throw error
+  }
   return res.json()
 }
 
@@ -464,13 +588,28 @@ export async function getTourRoomChat(roomId) {
   return res.json()
 }
 
-export async function sendTourRoomChatMessage(roomId, senderId, message, attachmentUrl = '') {
+export async function sendTourRoomChatMessage(roomId, payloadOrSenderId, message = '', attachmentUrl = '', extra = {}) {
+  let bodyPayload = {}
+  if (typeof payloadOrSenderId === 'object' && payloadOrSenderId !== null) {
+    bodyPayload = payloadOrSenderId
+  } else {
+    bodyPayload = {
+      sender: payloadOrSenderId,
+      message,
+      attachment_url: attachmentUrl,
+      ...extra,
+    }
+  }
+
   const res = await fetch(`${API_BASE}/tourrooms/${roomId}/chat/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sender: senderId, message, attachment_url: attachmentUrl }),
+    body: JSON.stringify(bodyPayload),
   })
-  if (!res.ok) throw new Error('Failed to send chat message')
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to send chat message')
+  }
   return res.json()
 }
 
@@ -1655,4 +1794,72 @@ export async function submitTravelerBugReport(userId, payload) {
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Failed to submit bug report')
   return data
+}
+
+// ==========================================
+// FEATURE 1: 2FA API HELPERS
+// ==========================================
+
+export async function get2FASetup() {
+  const res = await fetch(`${API_BASE}/2fa/setup/`, { method: 'POST' })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Failed to setup 2FA')
+  return data
+}
+
+export async function enable2FA(code) {
+  const res = await fetch(`${API_BASE}/2fa/enable/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Failed to enable 2FA')
+  return data
+}
+
+export async function disable2FA(payload = {}) {
+  const res = await fetch(`${API_BASE}/2fa/disable/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || 'Failed to disable 2FA')
+  return data
+}
+
+export async function get2FAStatus() {
+  const res = await fetch(`${API_BASE}/2fa/status/`)
+  if (!res.ok) throw new Error('Failed to load 2FA status')
+  return res.json()
+}
+
+export async function verify2FALogin(preAuthToken, code) {
+  const res = await _nativeFetch(`${API_BASE}/2fa/verify-login/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ pre_auth_token: preAuthToken, code }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.error || '2FA verification failed')
+  }
+  if (data.access) {
+    setAccessToken(data.access)
+  }
+  return data
+}
+
+export async function logoutUser() {
+  try {
+    await fetch(`${API_BASE}/auth/logout/`, { method: 'POST' })
+  } finally {
+    clearAccessToken()
+    localStorage.removeItem('userId')
+    localStorage.removeItem('userType')
+    localStorage.removeItem('username')
+    localStorage.removeItem('isAdmin')
+  }
 }

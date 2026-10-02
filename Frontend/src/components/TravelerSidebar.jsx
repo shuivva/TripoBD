@@ -1,69 +1,6 @@
 import { NavLink } from 'react-router-dom'
-import { useEffect, useRef, useState, useCallback } from 'react'
 
 export default function TravelerSidebar() {
-  const sidebarRef = useRef(null)
-  const [sidebarBottom, setSidebarBottom] = useState(0)
-  const rafRef = useRef(null)
-  const lastScrollY = useRef(0)
-
-  const adjustSidebar = useCallback(() => {
-    const footer = document.querySelector('.site-footer')
-    const sidebar = sidebarRef.current
-    
-    if (!footer || !sidebar) {
-      setSidebarBottom(0)
-      return
-    }
-
-    const footerRect = footer.getBoundingClientRect()
-    const windowHeight = window.innerHeight
-    const navbarHeight = 60
-
-    // Calculate where sidebar should stop
-    if (footerRect.top < windowHeight && footerRect.top > navbarHeight) {
-      const overlap = windowHeight - footerRect.top
-      setSidebarBottom(Math.max(0, overlap))
-    } else if (footerRect.top <= navbarHeight) {
-      // Footer is above navbar, sidebar should be hidden or minimal
-      setSidebarBottom(windowHeight - navbarHeight)
-    } else {
-      setSidebarBottom(0)
-    }
-
-    rafRef.current = null
-  }, [])
-
-  useEffect(() => {
-    const handleScroll = () => {
-      lastScrollY.current = window.scrollY
-      if (!rafRef.current) {
-        rafRef.current = requestAnimationFrame(adjustSidebar)
-      }
-    }
-
-    const handleResize = () => {
-      if (!rafRef.current) {
-        rafRef.current = requestAnimationFrame(adjustSidebar)
-      }
-    }
-
-    // Initial adjustment
-    adjustSidebar()
-
-    // Add event listeners with passive option for better performance
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('resize', handleResize, { passive: true })
-
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleResize)
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current)
-      }
-    }
-  }, [adjustSidebar])
-
   const sidebarLinks = [
     { label: '📊 Dashboard', to: '/traveler/dashboard' },
     { label: '🚪 Room Planner', to: '/traveler/room' },
@@ -76,7 +13,7 @@ export default function TravelerSidebar() {
   ]
 
   return (
-    <aside ref={sidebarRef} className="traveler-sidebar" style={{ bottom: `calc(${sidebarBottom}px + 24px)` }}>
+    <aside className="traveler-sidebar">
       <div className="sidebar-nav-title">Traveler Menu</div>
       <nav className="sidebar-nav-list">
         {sidebarLinks.map((link) => (
@@ -98,6 +35,8 @@ export default function TravelerSidebar() {
           top: 98px !important;
           left: 24px !important;
           width: 240px !important;
+          max-height: calc(100vh - 122px) !important;
+          height: fit-content;
           background: #ffffff !important;
           border: 1px solid rgba(0, 0, 0, 0.06) !important;
           border-radius: 20px !important;
@@ -107,7 +46,6 @@ export default function TravelerSidebar() {
           display: flex;
           flex-direction: column;
           gap: 1rem;
-          transition: bottom 0.1s ease-out;
           box-shadow: 0 8px 30px rgba(0, 0, 0, 0.03) !important;
         }
         .sidebar-nav-title {

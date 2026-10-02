@@ -156,6 +156,7 @@ class AccountSettingsSerializer(serializers.ModelSerializer):
         fields = [
             'profile_visibility',
             'two_factor_enabled',
+            'is_2fa_enabled',
             'deactivation_requested',
             'deactivation_requested_at',
             'deactivation_reason',
@@ -200,6 +201,7 @@ class TripStorySerializer(serializers.ModelSerializer):
         model = TripStory
         fields = [
             'id',
+            'uuid',
             'title',
             'content',
             'cover_photo',
@@ -238,6 +240,7 @@ class TravelerProfileSerializer(serializers.ModelSerializer):
             'division',
             'district',
             'profile_photo',
+            'national_id',
             'travel_preferences',
             'travel_stats',
             'account_settings',
@@ -326,6 +329,7 @@ class ServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         fields = [
+            'uuid',
             'user',
             'service_type',
             'specialized_destinations',
@@ -411,7 +415,7 @@ class NestedServiceProviderSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         fields = [
-            'id', 'service_type', 'service_type_label', 'specialized_destinations',
+            'id', 'uuid', 'service_type', 'service_type_label', 'specialized_destinations',
             'years_of_experience', 'languages_offered', 'fee_range', 'is_verified', 'user'
         ]
 
@@ -437,7 +441,7 @@ class ServiceProviderBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProviderBooking
         fields = [
-            'id', 'service_provider', 'service_provider_name', 'service_provider_type',
+            'id', 'uuid', 'service_provider', 'service_provider_name', 'service_provider_type',
             'customer', 'customer_name', 'customer_username', 'customer_email', 'customer_phone',
             'start_date', 'end_date', 'group_size', 'specific_requirements', 'message',
             'status', 'created_at', 'agreed_fee', 'internal_notes', 'rejection_reason', 'review'
@@ -477,7 +481,11 @@ class TourRoomChatMessageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = TourRoomChatMessage
-        fields = ['id', 'room', 'sender', 'sender_username', 'sender_name', 'sender_avatar', 'message', 'attachment_url', 'is_pinned', 'created_at']
+        fields = [
+            'id', 'room', 'sender', 'sender_username', 'sender_name', 'sender_avatar',
+            'ciphertext', 'iv', 'is_encrypted',
+            'message', 'attachment_url', 'is_pinned', 'created_at'
+        ]
 
     def get_sender_avatar(self, obj):
         try:
@@ -570,7 +578,7 @@ class TourRoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = TourRoom
         fields = [
-            'id', 'name', 'destination', 'destination_name', 'destination_slug',
+            'id', 'uuid', 'name', 'destination', 'destination_name', 'destination_slug',
             'start_datetime', 'end_datetime', 'description', 'owner', 'owner_username',
             'cover_photo', 'invite_code', 'is_archived', 'is_public', 'max_members', 'created_at'
         ]
@@ -591,7 +599,7 @@ class ServiceProviderProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServiceProvider
         fields = [
-            'id', 'username', 'email', 'full_name', 'service_type',
+            'id', 'uuid', 'username', 'email', 'full_name', 'service_type',
             'specialized_destinations', 'years_of_experience', 'languages_offered',
             'fee_range', 'nid_scan', 'certification', 'portfolio_photos',
             'bank_account_details', 'is_verified', 'submitted_at', 'verified_at',

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -30,7 +31,7 @@ SECRET_KEY = 'django-insecure-&#x7l#@x-v=2(thh5n&d-8qs1q=08xsj*#^7#kf#x9ik0+-et+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver', '*']
 
 
 # Application definition
@@ -43,19 +44,25 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
+    'simple_history',
+    'encrypted_model_fields',
     'api',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'csp.middleware.CSPMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'simple_history.middleware.HistoryRequestMiddleware',
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -164,6 +171,127 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'hawkersystem@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+
+# Cache configuration for rate limiting and performance
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'tripobd_cache',
+    }
+}
+
+# Django REST Framework Settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'api.authentication.CsrfExemptSessionAuthentication',
+        'rest_framework.authentication.BasicAuthentication',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+        'login': '5/minute',
+        'otp': '3/minute',
+        'ai_gen': '10/hour',
+    },
+}
+
+# SimpleJWT Hardened JWT Configuration (F-02)
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer', 'JWT'),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+}
+
+# Cookie Configuration for Hardened JWT Refresh Token
+AUTH_COOKIE_REFRESH = 'refresh_token'
+AUTH_COOKIE_SECURE = not DEBUG  # True in production HTTPS, False for localhost HTTP development
+AUTH_COOKIE_HTTP_ONLY = True
+AUTH_COOKIE_SAMESITE = 'Lax'
+AUTH_COOKIE_PATH = '/'
+AUTH_COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days in seconds
+
+# ==============================================================================
+# Feature 7 (F-07): Content Security Policy (CSP) & HTTP Security Headers
+# ==============================================================================
+# Directives specified in TripoBD Security Architecture Report (F-07)
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "'unsafe-eval'",
+    "https://maps.googleapis.com",
+)
+CSP_STYLE_SRC = (
+    "'self'",
+    "'unsafe-inline'",
+    "https://fonts.googleapis.com",
+)
+CSP_IMG_SRC = (
+    "'self'",
+    "data:",
+    "blob:",
+    "https://res.cloudinary.com",
+    "https://*.tile.openstreetmap.org",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+)
+CSP_FONT_SRC = (
+    "'self'",
+    "https://fonts.gstatic.com",
+    "data:",
+)
+CSP_CONNECT_SRC = (
+    "'self'",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://maps.googleapis.com",
+)
+CSP_FRAME_ANCESTORS = ("'none'",)
+
+# Structured configuration for django-csp 4.0+
+CONTENT_SECURITY_POLICY = {
+    'DIRECTIVES': {
+        'default-src': CSP_DEFAULT_SRC,
+        'script-src': CSP_SCRIPT_SRC,
+        'style-src': CSP_STYLE_SRC,
+        'img-src': CSP_IMG_SRC,
+        'font-src': CSP_FONT_SRC,
+        'connect-src': CSP_CONNECT_SRC,
+        'frame-ancestors': CSP_FRAME_ANCESTORS,
+    }
+}
+
+# SecurityMiddleware Hardening (F-07)
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+# HTTP Strict Transport Security (HSTS)
+# 1 year (31536000s) with subdomains and preload in production
+# Safely set to 0 in local development (DEBUG=True) to prevent browser forced HTTPS on localhost
+SECURE_HSTS_SECONDS = 0 if DEBUG else 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
+
+# ==============================================================================
+# Feature 9 (F-09): Field-Level Encryption for Personally Identifiable Info (PII)
+# ==============================================================================
+# Master encryption key for transparent symmetric AES field-level encryption
+FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY', 'HQBTeXT9Nh4THwEoyIN4jPxl5e5P3VdQCqfXr66eP6o=')
 
 # For development it's okay to allow specifying plain credentials via env, but
 # avoid hardcoding passwords. You should set EMAIL_HOST_PASSWORD in your

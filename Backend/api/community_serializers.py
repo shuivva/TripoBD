@@ -59,6 +59,7 @@ class OpenTourGroupListSerializer(serializers.ModelSerializer):
         model = OpenTourGroup
         fields = [
             'id',
+            'uuid',
             'name',
             'description',
             'cover_image',
@@ -172,6 +173,7 @@ class CommunityPostSerializer(serializers.ModelSerializer):
         model = CommunityPost
         fields = [
             'id',
+            'uuid',
             'post_type',
             'title',
             'content',

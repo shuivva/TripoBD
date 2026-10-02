@@ -1,5 +1,20 @@
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import *
+from .viewsets import (
+    BookingViewSet,
+    TourRoomViewSet,
+    ServiceProviderViewSet,
+    TripStoryViewSet,
+    CommunityPostViewSet,
+)
+
+router = DefaultRouter()
+router.register(r'bookings', BookingViewSet, basename='v1-booking')
+router.register(r'tourrooms', TourRoomViewSet, basename='v1-tourroom')
+router.register(r'service-providers', ServiceProviderViewSet, basename='v1-service-provider')
+router.register(r'stories', TripStoryViewSet, basename='v1-story')
+router.register(r'posts', CommunityPostViewSet, basename='v1-post')
 from .community_views import (
     open_groups_list_create,
     open_group_detail,
@@ -36,7 +51,32 @@ from .guide_admin_views import (
     admin_route_management,
 )
 
+from .auth_jwt_views import (
+    CookieTokenObtainPairView,
+    CookieTokenRefreshView,
+    CookieTokenLogoutView,
+    setup_2fa,
+    enable_2fa,
+    disable_2fa,
+    status_2fa,
+    verify_2fa_login,
+)
+
 urlpatterns = [
+    path('v1/', include(router.urls)),
+    
+    # Feature 2: Hardened JWT Authentication (HttpOnly Cookie & Refresh Rotation)
+    path('token/', CookieTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('token/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
+    path('token/logout/', CookieTokenLogoutView.as_view(), name='token_logout'),
+
+    # Feature 1: Advanced TOTP Two-Factor Authentication (2FA)
+    path('2fa/setup/', setup_2fa, name='2fa-setup'),
+    path('2fa/enable/', enable_2fa, name='2fa-enable'),
+    path('2fa/disable/', disable_2fa, name='2fa-disable'),
+    path('2fa/status/', status_2fa, name='2fa-status'),
+    path('2fa/verify-login/', verify_2fa_login, name='2fa-verify-login'),
+
     path('destinations/', DestinationListAPIView.as_view(), name='destination-list'),
     path('destinations/<slug:slug>/', DestinationDetailAPIView.as_view(), name='destination-detail'),
     path('guides/', GuideListAPIView.as_view(), name='guide-list'),
@@ -77,38 +117,38 @@ urlpatterns = [
 
     # 3.4 Tour Room (Group Planner)
     path('traveler/<int:user_id>/tourrooms/', tourroom_list_create, name='tourrooms-list-create'),
-    path('traveler/<int:user_id>/tourrooms/<int:room_id>/', tourroom_detail, name='tourroom-detail'),
-    path('traveler/<int:user_id>/tourrooms/<int:room_id>/invite/', tourroom_invite_member, name='tourroom-invite-member'),
     path('traveler/<int:user_id>/tourrooms/invites/', tourroom_invites_list, name='tourroom-invites-list'),
     path('traveler/<int:user_id>/tourrooms/invites/<int:invite_id>/respond/', tourroom_invite_respond, name='tourroom-invite-respond'),
+    path('traveler/<int:user_id>/tourrooms/<str:room_id>/', tourroom_detail, name='tourroom-detail'),
+    path('traveler/<int:user_id>/tourrooms/<str:room_id>/invite/', tourroom_invite_member, name='tourroom-invite-member'),
     
-    path('tourrooms/<int:room_id>/activities/', tourroom_activity_create, name='tourroom-activity-create'),
+    path('tourrooms/<str:room_id>/activities/', tourroom_activity_create, name='tourroom-activity-create'),
     path('tourrooms/activities/<int:activity_id>/', tourroom_activity_detail, name='tourroom-activity-detail'),
-    path('tourrooms/<int:room_id>/expenses/', tourroom_expense_create, name='tourroom-expense-create'),
+    path('tourrooms/<str:room_id>/expenses/', tourroom_expense_create, name='tourroom-expense-create'),
     path('tourrooms/expenses/participants/<int:participant_id>/', tourroom_expense_participant_paid, name='tourroom-expense-participant-paid'),
-    path('tourrooms/<int:room_id>/polls/', tourroom_poll_create, name='tourroom-poll-create'),
+    path('tourrooms/<str:room_id>/polls/', tourroom_poll_create, name='tourroom-poll-create'),
     path('tourrooms/polls/<int:poll_id>/vote/', tourroom_poll_vote, name='tourroom-poll-vote'),
-    path('tourrooms/<int:room_id>/checklist/', tourroom_checklist_create, name='tourroom-checklist-create'),
+    path('tourrooms/<str:room_id>/checklist/', tourroom_checklist_create, name='tourroom-checklist-create'),
     path('tourrooms/checklist/<int:item_id>/', tourroom_checklist_detail, name='tourroom-checklist-detail'),
-    path('tourrooms/<int:room_id>/chat/', tourroom_chat_messages, name='tourroom-chat-messages'),
-    path('tourrooms/<int:room_id>/mappins/', tourroom_mappin_create, name='tourroom-mappin-create'),
+    path('tourrooms/<str:room_id>/chat/', tourroom_chat_messages, name='tourroom-chat-messages'),
+    path('tourrooms/<str:room_id>/mappins/', tourroom_mappin_create, name='tourroom-mappin-create'),
     path('tourrooms/mappins/<int:pin_id>/', tourroom_mappin_delete, name='tourroom-mappin-delete'),
-    path('tourrooms/<int:room_id>/booking-notes/', tourroom_bookingnote_create, name='tourroom-bookingnote-create'),
-    path('tourrooms/<int:room_id>/settings/', tourroom_settings_update, name='tourroom-settings-update'),
+    path('tourrooms/<str:room_id>/booking-notes/', tourroom_bookingnote_create, name='tourroom-bookingnote-create'),
+    path('tourrooms/<str:room_id>/settings/', tourroom_settings_update, name='tourroom-settings-update'),
 
     # 3.6 Tour Guide & Local Bookings
     path('traveler/bookings/service-providers/', service_provider_list, name='service-provider-list'),
-    path('traveler/bookings/service-providers/<int:sp_id>/', service_provider_detail, name='service-provider-detail'),
-    path('traveler/bookings/service-providers/<int:sp_id>/book/', service_provider_book, name='service-provider-book'),
+    path('traveler/bookings/service-providers/<str:sp_id>/', service_provider_detail, name='service-provider-detail'),
+    path('traveler/bookings/service-providers/<str:sp_id>/book/', service_provider_book, name='service-provider-book'),
     path('traveler/<int:user_id>/bookings/', my_bookings_list, name='my-bookings-list'),
-    path('traveler/bookings/<int:booking_id>/status/', booking_status_update, name='booking-status-update'),
-    path('traveler/bookings/service-providers/<int:sp_id>/review/', service_provider_review, name='service-provider-review'),
+    path('traveler/bookings/<str:booking_id>/status/', booking_status_update, name='booking-status-update'),
+    path('traveler/bookings/service-providers/<str:sp_id>/review/', service_provider_review, name='service-provider-review'),
 
     # 3.7 Reviews & Trip Stories
     path('traveler/destinations/<slug:dest_slug>/review/', destination_review_create, name='destination-review-create'),
     path('traveler/accommodations/<int:accom_id>/review/', accommodation_review_create, name='accommodation-review-create'),
     path('traveler/<int:user_id>/stories/create-update/', trip_story_create_update, name='trip-story-create-update'),
-    path('traveler/stories/<int:story_id>/', trip_story_detail, name='trip-story-detail'),
+    path('traveler/stories/<str:story_id>/', trip_story_detail, name='trip-story-detail'),
     path('traveler/stories/', trip_stories_list, name='trip-stories-list'),
     path('traveler/<int:user_id>/reviews/', my_reviews_list, name='my-reviews-list'),
     path('traveler/reviews/<str:review_type>/<int:review_id>/', review_delete, name='review-delete'),
@@ -134,7 +174,7 @@ urlpatterns = [
     # Guide Portal APIs
     path('guide/<int:user_id>/dashboard/', guide_dashboard_stats, name='guide-dashboard'),
     path('guide/<int:user_id>/profile/', guide_profile_detail_update, name='guide-profile'),
-    path('guide/bookings/<int:booking_id>/action/', guide_booking_actions, name='guide-booking-action'),
+    path('guide/bookings/<str:booking_id>/action/', guide_booking_actions, name='guide-booking-action'),
     path('guide/<int:user_id>/earnings/', guide_earnings_list, name='guide-earnings'),
     path('guide/<int:user_id>/support/tickets/', guide_support_tickets, name='guide-support-tickets'),
 

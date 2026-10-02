@@ -1,6 +1,9 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from simple_history.models import HistoricalRecords
+from api.cryptography_fields import encrypt
 
 
 class UserProfile(models.Model):
@@ -28,17 +31,18 @@ class UserProfile(models.Model):
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     full_name = models.CharField(max_length=100)
-    phone_number = models.CharField(max_length=15)
+    phone_number = encrypt(models.CharField(max_length=15))
     date_of_birth = models.DateField()
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES)
     division = models.CharField(max_length=20, choices=DIVISION_CHOICES)
     district = models.CharField(max_length=50)
     profile_photo = models.ImageField(upload_to='profile_photos/', blank=True, null=True)
-    national_id = models.CharField(max_length=20, blank=True, null=True)
+    national_id = encrypt(models.CharField(max_length=20, blank=True, null=True))
     user_type = models.CharField(max_length=20, choices=USER_TYPE_CHOICES, default='traveler')
     is_email_verified = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    history = HistoricalRecords()
     
     class Meta:
         db_table = 'user_profiles'
@@ -69,6 +73,7 @@ class ServiceProvider(models.Model):
         ('other', 'Other'),
     ]
     
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='service_provider')
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES)
     specialized_destinations = models.TextField(help_text='Comma separated list of service areas')
@@ -78,7 +83,7 @@ class ServiceProvider(models.Model):
     nid_scan = models.ImageField(upload_to='nid_scans/')
     certification = models.FileField(upload_to='certifications/', blank=True, null=True)
     portfolio_photos = models.JSONField(default=list, blank=True)
-    bank_account_details = models.TextField()
+    bank_account_details = encrypt(models.TextField())
     is_verified = models.BooleanField(default=False)
     submitted_at = models.DateTimeField(auto_now_add=True)
     verified_at = models.DateTimeField(null=True, blank=True)
@@ -89,6 +94,7 @@ class ServiceProvider(models.Model):
     availability_calendar = models.JSONField(default=list, blank=True)
     pricing_rates = models.JSONField(default=dict, blank=True)
     contact_preferences = models.CharField(max_length=100, blank=True, default='email')
+    history = HistoricalRecords()
     
     class Meta:
         db_table = 'service_providers'
@@ -149,12 +155,45 @@ class AccountSettings(models.Model):
     user_profile = models.OneToOneField(UserProfile, on_delete=models.CASCADE, related_name='account_settings')
     profile_visibility = models.CharField(max_length=20, choices=PROFILE_VISIBILITY_CHOICES, default='public')
     two_factor_enabled = models.BooleanField(default=False)
+    is_2fa_enabled = models.BooleanField(default=False)
+    totp_secret = models.CharField(max_length=64, blank=True, default='')
     deactivation_requested = models.BooleanField(default=False)
     deactivation_requested_at = models.DateTimeField(null=True, blank=True)
     deactivation_reason = models.TextField(blank=True, default='')
+    history = HistoricalRecords()
 
     class Meta:
         db_table = 'account_settings'
+
+    def enable_totp_2fa(self, secret):
+        self.totp_secret = secret
+        self.is_2fa_enabled = True
+        self.two_factor_enabled = True
+        self.save()
+
+    def disable_totp_2fa(self):
+        self.totp_secret = ''
+        self.is_2fa_enabled = False
+        self.two_factor_enabled = False
+        self.save()
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get('update_fields')
+        if update_fields:
+            fields_set = set(update_fields)
+            if 'is_2fa_enabled' in fields_set and 'two_factor_enabled' not in fields_set:
+                self.two_factor_enabled = self.is_2fa_enabled
+                kwargs['update_fields'] = list(fields_set | {'two_factor_enabled'})
+            elif 'two_factor_enabled' in fields_set and 'is_2fa_enabled' not in fields_set:
+                self.is_2fa_enabled = self.two_factor_enabled
+                kwargs['update_fields'] = list(fields_set | {'is_2fa_enabled'})
+        else:
+            if self.is_2fa_enabled != self.two_factor_enabled:
+                if self.is_2fa_enabled:
+                    self.two_factor_enabled = True
+                else:
+                    self.two_factor_enabled = self.is_2fa_enabled
+        super().save(*args, **kwargs)
 
     def request_deactivation(self, reason=None):
         self.deactivation_requested = True
@@ -202,6 +241,7 @@ class TripStory(models.Model):
         ('published', 'Published'),
     ]
 
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     user_profile = models.ForeignKey(UserProfile, on_delete=models.CASCADE, related_name='trip_stories')
     destination = models.ForeignKey('Destination', on_delete=models.CASCADE)
     title = models.CharField(max_length=200)
@@ -295,6 +335,7 @@ class Guide(models.Model):
 
 
 class TourRoom(models.Model):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     name = models.CharField(max_length=200)
     destination = models.ForeignKey(
         Destination,
@@ -393,6 +434,7 @@ class OpenTourGroup(models.Model):
         ('email', 'Email'),
     ]
 
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     organizer = models.ForeignKey(
         UserProfile,
         on_delete=models.CASCADE,
@@ -519,6 +561,7 @@ class CommunityPost(models.Model):
         ('tip', 'Travel Tip'),
     ]
 
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     author = models.ForeignKey(
         UserProfile,
         on_delete=models.CASCADE,
@@ -726,6 +769,7 @@ class ServiceProviderBooking(models.Model):
         ('completed', 'Completed'),
         ('cancelled', 'Cancelled'),
     ]
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, db_index=True)
     service_provider = models.ForeignKey(ServiceProvider, on_delete=models.CASCADE, related_name='bookings')
     customer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='service_bookings')
     start_date = models.DateField()
@@ -740,6 +784,7 @@ class ServiceProviderBooking(models.Model):
     agreed_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     internal_notes = models.TextField(blank=True, default='')
     rejection_reason = models.TextField(blank=True, default='')
+    history = HistoricalRecords()
 
     class Meta:
         db_table = 'service_provider_bookings'
@@ -805,7 +850,11 @@ class TourRoomBookingNote(models.Model):
 class TourRoomChatMessage(models.Model):
     room = models.ForeignKey(TourRoom, on_delete=models.CASCADE, related_name='chat_messages')
     sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tour_room_chat_messages')
-    message = models.TextField(blank=True, default='')
+    # Zero-Knowledge End-to-End Encryption (F-06 Web Cryptography API AES-GCM)
+    ciphertext = models.TextField(blank=True, default='')
+    iv = models.CharField(max_length=64, blank=True, default='')
+    is_encrypted = models.BooleanField(default=True)
+    message = models.TextField(blank=True, default='')  # Ciphertext mirror or legacy fallback
     attachment_url = models.CharField(max_length=255, blank=True, default='')
     is_pinned = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -815,7 +864,9 @@ class TourRoomChatMessage(models.Model):
         ordering = ['created_at']
 
     def __str__(self):
-        return f"{self.sender.username}: {self.message[:30]}"
+        status = "[E2EE]" if self.is_encrypted else "[Plain]"
+        preview = (self.ciphertext or self.message)[:30]
+        return f"{self.sender.username} {status}: {preview}"
 
 
 class TourRoomChecklistItem(models.Model):
@@ -1205,3 +1256,29 @@ class BugReport(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.severity}"
+
+
+class SecurityAuditLog(models.Model):
+    EVENT_TYPES = [
+        ('login_success', 'Login Success'),
+        ('login_failed', 'Login Failed'),
+        ('logout', 'Logout'),
+        ('password_change', 'Password Change'),
+        ('rate_limited', 'Rate Limit Triggered'),
+        ('suspicious_activity', 'Suspicious Activity'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='security_audit_logs')
+    username_attempted = models.CharField(max_length=255, blank=True, default='')
+    event_type = models.CharField(max_length=50, choices=EVENT_TYPES, default='login_success')
+    ip_address = models.CharField(max_length=45, blank=True, default='')
+    user_agent = models.TextField(blank=True, default='')
+    details = models.JSONField(default=dict, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'security_audit_logs'
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f"{self.event_type} - {self.username_attempted or (self.user.username if self.user else 'Anonymous')} at {self.timestamp}"

@@ -65,8 +65,12 @@ export default function TravelerDashboard() {
       try {
         const data = await getTravelerDashboard(userId)
         setDashboard(data)
-      } catch {
-        setError('Unable to load dashboard. Please try again.')
+      } catch (err) {
+        if (err?.status === 401) {
+          setError('Session expired or authentication required. Please sign in to view your dashboard.')
+        } else {
+          setError('Unable to load dashboard. Please try again.')
+        }
       } finally {
         setLoading(false)
       }
@@ -159,7 +163,7 @@ export default function TravelerDashboard() {
 
   if (loading) {
     return (
-      <main className="page-shell">
+      <main className="page-shell traveler-dashboard">
         <p className="dashboard-status">Loading your dashboard…</p>
       </main>
     )
@@ -167,13 +171,13 @@ export default function TravelerDashboard() {
 
   if (error || !dashboard) {
     return (
-      <main className="page-shell">
+      <main className="page-shell traveler-dashboard">
         <p className="dashboard-status dashboard-error">{error || 'Dashboard unavailable.'}</p>
-        {!userId && (
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
           <button type="button" className="button button-primary" onClick={() => navigate('/signin')}>
-            Sign In
+            Go to Sign In
           </button>
-        )}
+        </div>
       </main>
     )
   }

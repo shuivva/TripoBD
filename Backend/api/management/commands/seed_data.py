@@ -214,6 +214,7 @@ class Command(BaseCommand):
             two_factor_enabled=False,
             deactivation_requested=False,
             deactivation_requested_at=None,
+            message_privacy="everyone",
             deactivation_reason='',
         )
 

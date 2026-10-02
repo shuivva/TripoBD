@@ -1,3 +1,4 @@
+import uuid
 from datetime import date
 from django.utils import timezone
 from django.db.models import Sum, Q, Avg
@@ -77,10 +78,31 @@ def _log_admin_action(admin, action, details, request=None):
 
 # =====================================================================
 # SECTION 4: GUIDE / SERVICE PROVIDER PORTAL VIEWS
+def _resolve_booking(booking_identifier):
+    if not booking_identifier:
+        return None
+    try:
+        val = uuid.UUID(str(booking_identifier))
+        return ServiceProviderBooking.objects.filter(uuid=val).first()
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return ServiceProviderBooking.objects.filter(pk=int(booking_identifier)).first()
+    except (ValueError, TypeError):
+        return None
+
+
+# =====================================================================
+# GUIDE PORTAL VIEWS
 # =====================================================================
 
 @api_view(['GET'])
 def guide_dashboard_stats(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied to guide dashboard'}, status=status.HTTP_403_FORBIDDEN)
+
     sp = _get_sp_or_404(user_id)
     if not sp:
         return Response({'error': 'Service provider profile not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -138,6 +160,10 @@ def guide_profile_detail_update(request, user_id):
         return Response(serializer.data)
         
     elif request.method == 'PATCH':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
         serializer = ServiceProviderProfileSerializer(sp, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
@@ -147,9 +173,16 @@ def guide_profile_detail_update(request, user_id):
 
 @api_view(['POST'])
 def guide_booking_actions(request, booking_id):
-    booking = ServiceProviderBooking.objects.filter(pk=booking_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    booking = _resolve_booking(booking_id)
     if not booking:
         return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Object-level permission check: Only the assigned service provider (or staff) can take guide actions
+    is_provider = getattr(booking.service_provider, 'user_id', None) == request.user.id
+    if not (is_provider or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied. Only the assigned guide can manage this booking.'}, status=status.HTTP_403_FORBIDDEN)
         
     action = request.data.get('action') # accept, decline, complete, update_notes
     

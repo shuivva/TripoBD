@@ -1,6 +1,10 @@
+import uuid
+import traceback
+from django.utils import timezone
 from rest_framework import generics
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, throttle_classes, permission_classes, authentication_classes
+from rest_framework.permissions import AllowAny
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q, F
@@ -9,8 +13,6 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth import logout
 from django.core.mail import send_mail
 from django.conf import settings
-import traceback
-from django.utils import timezone
 from .models import (
     Destination,
     Guide,
@@ -61,6 +63,63 @@ from .models import (
     BugReport,
     SupportTicket,
 )
+
+
+def _resolve_booking(booking_identifier):
+    if not booking_identifier:
+        return None
+    try:
+        val = uuid.UUID(str(booking_identifier))
+        return ServiceProviderBooking.objects.filter(uuid=val).first()
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return ServiceProviderBooking.objects.filter(pk=int(booking_identifier)).first()
+    except (ValueError, TypeError):
+        return None
+
+
+def _resolve_room(room_identifier):
+    if not room_identifier:
+        return None
+    try:
+        val = uuid.UUID(str(room_identifier))
+        return TourRoom.objects.filter(uuid=val).first()
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return TourRoom.objects.filter(pk=int(room_identifier)).first()
+    except (ValueError, TypeError):
+        return None
+
+
+def _resolve_story(story_identifier):
+    if not story_identifier:
+        return None
+    try:
+        val = uuid.UUID(str(story_identifier))
+        return TripStory.objects.filter(uuid=val).first()
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return TripStory.objects.filter(pk=int(story_identifier)).first()
+    except (ValueError, TypeError):
+        return None
+
+
+def _resolve_service_provider(sp_identifier):
+    if not sp_identifier:
+        return None
+    try:
+        val = uuid.UUID(str(sp_identifier))
+        return ServiceProvider.objects.filter(uuid=val).first()
+    except (ValueError, AttributeError):
+        pass
+    try:
+        return ServiceProvider.objects.filter(pk=int(sp_identifier)).first()
+    except (ValueError, TypeError):
+        return None
+from .throttling import LoginRateThrottle, OTPRateThrottle, AIGenerationRateThrottle
 from .dashboard import build_traveler_dashboard
 from .serializers import (
     DestinationListSerializer,
@@ -112,55 +171,50 @@ from .serializers import (
 
 
 @api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def login_view(request):
+    from .auth_jwt_views import (
+        get_user_account_settings,
+        generate_pre_auth_token,
+        _issue_login_tokens,
+    )
     identifier = request.data.get('identifier')
     password = request.data.get('password')
 
     if not identifier or not password:
         return Response({'error': 'Identifier and password are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Try authenticating directly by username
-    user = authenticate(request, username=identifier, password=password)
+    username_to_auth = identifier
+    if '@' in identifier:
+        u = User.objects.filter(email__iexact=identifier).first()
+        if u:
+            username_to_auth = u.username
 
-    # If not found and identifier looks like an email, try resolving username by email
-    if user is None and '@' in identifier:
-        try:
-            u = User.objects.filter(email__iexact=identifier).first()
-            if u:
-                user = authenticate(request, username=u.username, password=password)
-        except Exception:
-            user = None
+    user = authenticate(request, username=username_to_auth, password=password)
 
     if user is not None:
-        # Optionally create a session
-        try:
-            login(request, user)
-        except Exception:
-            pass
-            
-        from .models import UserProfile
-        profile = UserProfile.objects.filter(user=user).first()
-        user_type = profile.user_type if profile else None
-        is_admin = user.is_staff or user.is_superuser
-        
-        return Response({
-            'message': 'Login successful',
-            'user_id': user.id,
-            'username': user.username,
-            'user_type': user_type,
-            'is_admin': is_admin
-        }, status=status.HTTP_200_OK)
+        account_settings = get_user_account_settings(user)
+        if account_settings.is_2fa_enabled and account_settings.totp_secret:
+            pre_auth_token = generate_pre_auth_token(user)
+            return Response({
+                'requires_2fa': True,
+                'pre_auth_token': pre_auth_token,
+                'user_id': user.id,
+                'username': user.username,
+                'message': 'Two-Factor Authentication required. Please enter your 6-digit TOTP code.'
+            }, status=status.HTTP_200_OK)
+
+        return _issue_login_tokens(request, user)
 
     return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 @api_view(['POST'])
 def logout_view(request):
-    try:
-        logout(request)
-    except Exception:
-        pass
-    return Response({'message': 'Logged out'}, status=status.HTTP_200_OK)
+    from .auth_jwt_views import CookieTokenLogoutView
+    return CookieTokenLogoutView().post(request)
 
 
 class DestinationListAPIView(generics.ListAPIView):
@@ -245,6 +299,9 @@ def discover_filters(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def register_traveler(request):
     user_serializer = UserRegistrationSerializer(data=request.data)
     if user_serializer.is_valid():
@@ -318,6 +375,9 @@ TripoBD Team
 
 
 @api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([OTPRateThrottle])
 def verify_otp(request):
     email = request.data.get('email')
     otp = (request.data.get('otp') or '').strip()
@@ -354,6 +414,9 @@ def verify_otp(request):
 
 
 @api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+@throttle_classes([LoginRateThrottle])
 def register_service_provider(request):
     # Step 1: Register user
     user_data = {
@@ -464,6 +527,11 @@ def _get_traveler_profile_or_404(user_id):
 
 @api_view(['GET'])
 def traveler_dashboard(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied to traveler dashboard'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -481,6 +549,11 @@ def traveler_profile_detail(request, user_id):
 
 @api_view(['PUT', 'PATCH'])
 def traveler_profile_update(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -494,6 +567,11 @@ def traveler_profile_update(request, user_id):
 
 @api_view(['PUT', 'PATCH'])
 def traveler_preferences_update(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -508,6 +586,11 @@ def traveler_preferences_update(request, user_id):
 
 @api_view(['PUT', 'PATCH'])
 def traveler_account_settings_update(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -531,7 +614,13 @@ def traveler_account_settings_update(request, user_id):
 
 
 @api_view(['POST'])
+@throttle_classes([LoginRateThrottle])
 def traveler_change_password(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     user = User.objects.filter(id=user_id).first()
     if not user:
         return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -551,6 +640,11 @@ def traveler_change_password(request, user_id):
 
 @api_view(['POST'])
 def traveler_profile_photo_update(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -1062,6 +1156,7 @@ Try asking: *"Plan a 3-day Bandarban trip under 5,000 BDT"* or *"Give me a packi
 
 # 3.3 AI Travel Assistant views
 @api_view(['GET', 'POST'])
+@throttle_classes([AIGenerationRateThrottle])
 def ai_sessions_list_create(request, user_id):
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
@@ -1101,6 +1196,7 @@ def ai_session_detail(request, session_id):
 
 
 @api_view(['POST'])
+@throttle_classes([AIGenerationRateThrottle])
 def ai_session_respond(request, session_id):
     session = AIChatSession.objects.filter(pk=session_id).first()
     if not session:
@@ -1139,6 +1235,7 @@ def ai_message_feedback(request, message_id):
 
 
 @api_view(['POST'])
+@throttle_classes([AIGenerationRateThrottle])
 def ai_save_itinerary(request, session_id):
     session = AIChatSession.objects.filter(pk=session_id).first()
     if not session:
@@ -1253,18 +1350,25 @@ def tourroom_list_create(request, user_id):
 
 @api_view(['GET', 'DELETE'])
 def tourroom_detail(request, room_id, user_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied to Tour Room'}, status=status.HTTP_403_FORBIDDEN)
+
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Tour Room not found'}, status=status.HTTP_404_NOT_FOUND)
 
     # Check membership
-    membership = TourRoomMembership.objects.filter(room=room, user_id=user_id).first()
-    if not membership:
-        return Response({'error': 'You are not a member of this Tour Room'}, status=status.HTTP_403_FORBIDDEN)
+    membership = TourRoomMembership.objects.filter(room=room, user=request.user).first()
+    is_owner = room.owner_id == request.user.id
+    if not membership and not is_owner and not (request.user.is_staff or request.user.is_superuser):
+        if not room.is_public:
+            return Response({'error': 'You are not a member of this Tour Room'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'DELETE':
         # Check if user is owner or room admin
-        if room.owner_id != int(user_id) and not membership.is_admin:
+        if not is_owner and (not membership or not membership.is_admin) and not (request.user.is_staff or request.user.is_superuser):
             return Response({'error': 'Only the owner or an admin can delete this Tour Room'}, status=status.HTTP_403_FORBIDDEN)
         room.delete()
         return Response({'message': 'Tour Room deleted successfully'}, status=status.HTTP_200_OK)
@@ -1319,9 +1423,18 @@ def tourroom_detail(request, room_id, user_id):
 
 @api_view(['POST'])
 def tourroom_invite_member(request, room_id, user_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Tour Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can send invites'}, status=status.HTTP_403_FORBIDDEN)
 
     inviter = User.objects.filter(id=user_id).first()
     target_username = request.data.get('username')
@@ -1388,9 +1501,15 @@ def tourroom_invite_respond(request, invite_id, user_id):
 
 @api_view(['POST'])
 def tourroom_activity_create(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can add activities'}, status=status.HTTP_403_FORBIDDEN)
 
     day = request.data.get('day_number', 1)
     title = request.data.get('title')
@@ -1422,9 +1541,15 @@ def tourroom_activity_create(request, room_id):
 
 @api_view(['PUT', 'PATCH', 'DELETE'])
 def tourroom_activity_detail(request, activity_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     act = TourRoomActivity.objects.filter(pk=activity_id).first()
     if not act:
         return Response({'error': 'Activity not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = act.room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=act.room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied. Only room members can modify activities.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'DELETE':
         act.delete()
@@ -1460,9 +1585,15 @@ def tourroom_activity_detail(request, activity_id):
 
 @api_view(['POST'])
 def tourroom_expense_create(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can record expenses'}, status=status.HTTP_403_FORBIDDEN)
 
     payer_id = request.data.get('payer') or request.data.get('payer_id')
     amount = request.data.get('amount')
@@ -1515,9 +1646,15 @@ def tourroom_expense_participant_paid(request, participant_id):
 
 @api_view(['POST'])
 def tourroom_poll_create(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can create polls'}, status=status.HTTP_403_FORBIDDEN)
 
     creator_id = request.data.get('creator')
     question = request.data.get('question')
@@ -1573,9 +1710,15 @@ def tourroom_poll_vote(request, poll_id):
 
 @api_view(['POST'])
 def tourroom_checklist_create(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can add checklist items'}, status=status.HTTP_403_FORBIDDEN)
 
     title = request.data.get('title')
     assign_id = request.data.get('assigned_to')
@@ -1597,9 +1740,15 @@ def tourroom_checklist_create(request, room_id):
 
 @api_view(['PUT', 'PATCH', 'DELETE'])
 def tourroom_checklist_detail(request, item_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     item = TourRoomChecklistItem.objects.filter(pk=item_id).first()
     if not item:
         return Response({'error': 'Checklist item not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = item.room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=item.room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied. Only room members can modify checklist items.'}, status=status.HTTP_403_FORBIDDEN)
 
     if request.method == 'DELETE':
         item.delete()
@@ -1621,25 +1770,43 @@ def tourroom_checklist_detail(request, item_id):
 
 @api_view(['GET', 'POST'])
 def tourroom_chat_messages(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
 
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or room.is_public or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can access tour room chat'}, status=status.HTTP_403_FORBIDDEN)
+
     if request.method == 'POST':
-        sender_id = request.data.get('sender')
-        message = request.data.get('message', '')
-        attachment = request.data.get('attachment_url', '')
+        # Prevent sender spoofing - enforce authenticated user unless staff
+        requested_sender_id = request.data.get('sender')
+        if requested_sender_id and (request.user.is_staff or request.user.is_superuser):
+            sender = User.objects.filter(id=requested_sender_id).first()
+            if not sender:
+                return Response({'error': 'Sender user not found'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            sender = request.user
 
-        if not sender_id or (not message and not attachment):
-            return Response({'error': 'Sender and either message or attachment are required'}, status=status.HTTP_400_BAD_REQUEST)
+        ciphertext = request.data.get('ciphertext', '').strip()
+        iv = request.data.get('iv', '').strip()
+        message = request.data.get('message', '').strip()
+        attachment = request.data.get('attachment_url', '').strip()
+        is_encrypted = request.data.get('is_encrypted', bool(ciphertext and iv))
 
-        sender = User.objects.filter(id=sender_id).first()
-        if not sender:
-            return Response({'error': 'Sender user not found'}, status=status.HTTP_400_BAD_REQUEST)
+        if not (ciphertext or message or attachment):
+            return Response({'error': 'Either ciphertext, message, or attachment is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Zero-Knowledge persistence: server only saves ciphertext and iv
         msg = TourRoomChatMessage.objects.create(
             room=room,
             sender=sender,
-            message=message,
+            ciphertext=ciphertext if ciphertext else message,
+            iv=iv,
+            is_encrypted=is_encrypted,
+            message=ciphertext if ciphertext else message,
             attachment_url=attachment,
         )
 
@@ -1654,9 +1821,15 @@ def tourroom_chat_messages(request, room_id):
 
 @api_view(['POST'])
 def tourroom_mappin_create(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can add map pins'}, status=status.HTTP_403_FORBIDDEN)
 
     user_id = request.data.get('user_id')
     label = request.data.get('label')
@@ -1681,9 +1854,15 @@ def tourroom_mappin_create(request, room_id):
 
 @api_view(['DELETE'])
 def tourroom_mappin_delete(request, pin_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
     pin = TourRoomMapPin.objects.filter(pk=pin_id).first()
     if not pin:
         return Response({'error': 'Map pin not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = pin.room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=pin.room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied. Only room members can remove map pins.'}, status=status.HTTP_403_FORBIDDEN)
 
     pin.delete()
     return Response({'message': 'Map pin removed successfully'})
@@ -1691,9 +1870,15 @@ def tourroom_mappin_delete(request, pin_id):
 
 @api_view(['POST'])
 def tourroom_bookingnote_create(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    is_member = room.owner_id == request.user.id or TourRoomMembership.objects.filter(room=room, user=request.user).exists()
+    if not (is_member or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Only room members can add booking notes'}, status=status.HTTP_403_FORBIDDEN)
 
     user_id = request.data.get('user_id')
     title = request.data.get('title')
@@ -1714,13 +1899,15 @@ def tourroom_bookingnote_create(request, room_id):
 
 @api_view(['PUT', 'PATCH', 'DELETE'])
 def tourroom_settings_update(request, room_id):
-    room = TourRoom.objects.filter(pk=room_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    room = _resolve_room(room_id)
     if not room:
         return Response({'error': 'Room not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    user_id = request.data.get('user_id')
-    if not user_id:
-        return Response({'error': 'User ID is required'}, status=status.HTTP_400_BAD_REQUEST)
+    user_id = request.data.get('user_id') or request.user.id
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
 
     # Check membership
     membership = TourRoomMembership.objects.filter(room=room, user_id=user_id).first()
@@ -1933,8 +2120,11 @@ def service_provider_book(request, sp_id):
 
 @api_view(['GET'])
 def my_bookings_list(request, user_id):
-    # Upcoming & past bookings.
-    # Checks if requested user_id is a service provider, returning provider-centric bookings list if true.
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Access denied to bookings'}, status=status.HTTP_403_FORBIDDEN)
+
     user = User.objects.filter(id=user_id).first()
     if user and hasattr(user, 'service_provider'):
         bookings = ServiceProviderBooking.objects.filter(service_provider=user.service_provider)
@@ -1953,9 +2143,17 @@ def my_bookings_list(request, user_id):
 
 @api_view(['POST'])
 def booking_status_update(request, booking_id):
-    booking = ServiceProviderBooking.objects.filter(pk=booking_id).first()
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    booking = _resolve_booking(booking_id)
     if not booking:
         return Response({'error': 'Booking not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Object-level permission: Only customer, service provider, or staff
+    is_customer = booking.customer_id == request.user.id
+    is_provider = getattr(booking.service_provider, 'user_id', None) == request.user.id
+    if not (is_customer or is_provider or request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied. You are not a participant in this booking.'}, status=status.HTTP_403_FORBIDDEN)
 
     new_status = request.data.get('status')
     if new_status not in ('confirmed', 'completed', 'cancelled'):
@@ -2077,6 +2275,11 @@ def accommodation_review_create(request, accom_id):
 
 @api_view(['POST', 'PUT', 'PATCH'])
 def trip_story_create_update(request, user_id):
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile required'}, status=status.HTTP_400_BAD_REQUEST)
@@ -2134,13 +2337,26 @@ def trip_story_create_update(request, user_id):
 
 @api_view(['GET', 'DELETE'])
 def trip_story_detail(request, story_id):
-    story = TripStory.objects.filter(pk=story_id).first()
+    story = _resolve_story(story_id)
     if not story:
         return Response({'error': 'Story not found'}, status=status.HTTP_404_NOT_FOUND)
 
     if request.method == 'DELETE':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        is_author = getattr(story.user_profile, 'user_id', None) == request.user.id
+        if not (is_author or request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'Only the author can delete this story'}, status=status.HTTP_403_FORBIDDEN)
         story.delete()
         return Response({'message': 'Story deleted'})
+
+    # GET: If draft, restrict to author or staff
+    if story.status != 'published':
+        if not request.user or not request.user.is_authenticated:
+            return Response({'error': 'Authentication required to view draft story'}, status=status.HTTP_401_UNAUTHORIZED)
+        is_author = getattr(story.user_profile, 'user_id', None) == request.user.id
+        if not (is_author or request.user.is_staff or request.user.is_superuser):
+            return Response({'error': 'This story is a private draft'}, status=status.HTTP_403_FORBIDDEN)
 
     return Response(TripStorySerializer(story, context={'request': request}).data)
 
@@ -2507,13 +2723,19 @@ def traveler_account_settings(request, user_id):
 
 
 @api_view(['POST'])
+@throttle_classes([LoginRateThrottle])
 def traveler_change_password(request, user_id):
     """Change user password"""
+    if not request.user or not request.user.is_authenticated:
+        return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+    if request.user.id != int(user_id) and not (request.user.is_staff or request.user.is_superuser):
+        return Response({'error': 'Permission denied'}, status=status.HTTP_403_FORBIDDEN)
+
     profile = _get_traveler_profile_or_404(user_id)
     if not profile:
         return Response({'error': 'Traveler profile not found'}, status=status.HTTP_404_NOT_FOUND)
     
-    old_password = request.data.get('old_password')
+    old_password = request.data.get('old_password') or request.data.get('current_password')
     new_password = request.data.get('new_password')
     
     if not old_password or not new_password:
